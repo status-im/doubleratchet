@@ -6,6 +6,11 @@ package doubleratchet
 // TODO: When the new public key should be reset?
 // TODO: Max chain length? What happens when N in message header closes in on overflowing? Perform Ratchet step?
 
+// Any Double Ratchet message encrypted using Alice's initial sending chain can serve as
+// an "initial ciphertext" for X3DH. To deal with the possibility of lost or out-of-order messages,
+// a recommended pattern is for Alice to repeatedly send the same X3DH initial message prepended
+// to all of her Double Ratchet messages until she receives Bob's first Double Ratchet response message.
+
 import (
 	"fmt"
 )
@@ -93,7 +98,7 @@ func (s *State) RatchetEncrypt(plaintext []byte, ad AssociatedData) Message {
 func (s *State) RatchetDecrypt(m Message, ad AssociatedData) ([]byte, error) {
 	plaintext, err := s.TrySkippedMessageKeys(m, ad)
 	if err != nil {
-		return nil, fmt.Errorf("can't decrypt skipped message: " + err.Error())
+		return nil, fmt.Errorf("can't decrypt skipped message: %s", err)
 	}
 	if plaintext != nil {
 		return plaintext, nil

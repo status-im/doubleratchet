@@ -1,5 +1,11 @@
 package doubleratchet
 
+import (
+	"crypto/rand"
+	"fmt"
+	"golang.org/x/crypto/curve25519"
+)
+
 // TODO: Replace []byte with meaningful types.
 // TODO: Constant for
 
@@ -7,7 +13,7 @@ package doubleratchet
 type Crypto interface {
 	// Generate returns a new Diffie-Hellman key pair.
 	// TODO: (privKey, pubKey []byte)?
-	GenerateDH() DHKeyPair
+	GenerateDH() (DHKeyPair, error)
 
 	// DH returns the output from the Diffie-Hellman calculation between
 	// the private key from the DH key pair dhPair and the DH public key dbPub.
@@ -47,7 +53,24 @@ type DHKeyPair struct {
 
 // TODO: Implement.
 // CryptoRecommended is an implementation of Crypto with cryptographic primitives recommended
-// by the specification.
+// by the Double Ratchet Algorithm specification.
 type CryptoRecommended struct {
 	Crypto
+}
+
+func (c CryptoRecommended) GenerateDH() (DHKeyPair, error) {
+	var privkey [32]byte
+	if _, err := rand.Read(privkey[:]); err != nil {
+		return DHKeyPair{}, fmt.Errorf("couldn't generate privkey: %s", err)
+	}
+	privkey[0] &= 248
+	privkey[31] &= 127
+	privkey[31] |= 64
+
+	var pubkey [32]byte
+	curve25519.ScalarBaseMult(&pubkey, &privkey)
+	return DHKeyPair{
+		PrivateKey: privkey[:],
+		PublicKey:  pubkey[:],
+	}, nil
 }
