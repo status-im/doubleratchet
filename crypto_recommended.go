@@ -4,14 +4,15 @@ import (
 	"crypto/rand"
 	"fmt"
 
+	"crypto/hmac"
+	"crypto/sha256"
 	"golang.org/x/crypto/curve25519"
 )
 
 // CryptoRecommended is an implementation of Crypto with cryptographic primitives recommended
 // by the Double Ratchet Algorithm specification.
-type CryptoRecommended struct {
-	Crypto
-}
+// See Crypto interface.
+type CryptoRecommended struct{}
 
 func (c CryptoRecommended) GenerateDH() (DHKeyPair, error) {
 	var privkey [32]byte
@@ -28,4 +29,47 @@ func (c CryptoRecommended) GenerateDH() (DHKeyPair, error) {
 		PrivateKey: privkey[:],
 		PublicKey:  pubkey[:],
 	}, nil
+}
+
+func (c CryptoRecommended) DH(dhPair DHKeyPair, dhPub []byte) []byte {
+	// TODO: Implement
+
+	return nil
+}
+
+func (c CryptoRecommended) KdfRK(rk, dhOut []byte) (rootKey, chainKey []byte) {
+	// TODO: Implement.
+
+	return nil, nil
+}
+
+func (c CryptoRecommended) KdfCK(ck []byte) ([]byte, []byte) {
+	const (
+		ckInput = 15
+		mkInput = 16
+	)
+
+	// TODO: Use sha512? Think about how to switch the implementation later if not.
+	hasher := hmac.New(sha256.New, ck)
+
+	hasher.Write([]byte(ckInput))
+	chainKey := hasher.Sum(nil)
+	hasher.Reset()
+
+	hasher.Write([]byte(mkInput))
+	msgKey := hasher.Sum(nil)
+
+	return chainKey, msgKey
+}
+
+func (c CryptoRecommended) Encrypt(mk, plaintext, associatedData []byte) (ciphertext []byte) {
+	// TODO: Implement.
+
+	return nil
+}
+
+func (c CryptoRecommended) Decrypt(mk, ciphertext, associatedData []byte) (plaintext []byte) {
+	// TODO: Implement.
+
+	return nil
 }
