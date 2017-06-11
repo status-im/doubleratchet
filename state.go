@@ -68,7 +68,7 @@ func New(sharedKey, dhRemotePubKey []byte) (*State, error) {
 		DHr:       dhRemotePubKey,
 		MkSkipped: make(map[string][]byte),
 		MaxSkip:   MaxSkip,
-		Crypto:    CryptoRecommended{},
+		Crypto:    DefaultCrypto{},
 	}
 	// TODO: Implement option arguments and traverse through them.
 
@@ -88,7 +88,7 @@ func New(sharedKey, dhRemotePubKey []byte) (*State, error) {
 
 // RatchetEncrypt performs a symmetric-key ratchet step, then encrypts the message with
 // the resulting message key.
-func (s *State) RatchetEncrypt(plaintext []byte, ad AssociatedData) Message {
+func (s *State) RatchetEncrypt(plaintext []byte, ad AssociatedData) (Message, error) {
 	var mk []byte
 	s.CKs, mk = s.Crypto.KdfCK(s.CKs)
 	h := MessageHeader{
@@ -97,10 +97,15 @@ func (s *State) RatchetEncrypt(plaintext []byte, ad AssociatedData) Message {
 		PN: s.PN,
 	}
 	s.Ns++
+	ciphertext, err := s.Crypto.Encrypt(mk, plaintext, h.EncodeWithAD(ad))
+	// TODO: Rollback state when an error occurs.
+	if err != nil {
+		return Message{}, fmt.Errorf("failed to encrypt plaintext: %s", err)
+	}
 	return Message{
 		Header:     h,
-		Ciphertext: s.Crypto.Encrypt(mk, plaintext, h.EncodeWithAD(ad)),
-	}
+		Ciphertext: ciphertext,
+	}, err
 }
 
 // RatchetDecrypt is called to decrypt messages.
