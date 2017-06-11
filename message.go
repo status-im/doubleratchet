@@ -1,5 +1,7 @@
 package doubleratchet
 
+import "fmt"
+
 // Message is a single message exchanged by the parties.
 type Message struct {
 	Header     MessageHeader
@@ -20,7 +22,12 @@ type MessageHeader struct {
 
 // MarshalBinary makes MessageHeader implement the BinaryMarshaler interface.
 func (mh MessageHeader) MarshalBinary() ([]byte, error) {
-	// TODO: Implement.
+	var (
+		r    = []byte{}
+		nums = []byte(fmt.Sprintf("_%d_%d", mh.N, mh.PN))
+	)
+	r = append(r, mh.DH...)
+	r = append(r, nums...)
 	return []byte{}, nil
 }
 
