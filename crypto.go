@@ -1,13 +1,7 @@
 package doubleratchet
 
-import (
-	"crypto/rand"
-	"fmt"
-	"golang.org/x/crypto/curve25519"
-)
-
-// TODO: Replace []byte with meaningful types.
-// TODO: Constant for
+// TODO: Replace []byte with meaningful types?
+// TODO: Constant for nonces?
 
 // Crypto is a cryptography supplement for the library.
 type Crypto interface {
@@ -49,28 +43,4 @@ type Crypto interface {
 type DHKeyPair struct {
 	PrivateKey []byte
 	PublicKey  []byte
-}
-
-// TODO: Implement.
-// CryptoRecommended is an implementation of Crypto with cryptographic primitives recommended
-// by the Double Ratchet Algorithm specification.
-type CryptoRecommended struct {
-	Crypto
-}
-
-func (c CryptoRecommended) GenerateDH() (DHKeyPair, error) {
-	var privkey [32]byte
-	if _, err := rand.Read(privkey[:]); err != nil {
-		return DHKeyPair{}, fmt.Errorf("couldn't generate privkey: %s", err)
-	}
-	privkey[0] &= 248
-	privkey[31] &= 127
-	privkey[31] |= 64
-
-	var pubkey [32]byte
-	curve25519.ScalarBaseMult(&pubkey, &privkey)
-	return DHKeyPair{
-		PrivateKey: privkey[:],
-		PublicKey:  pubkey[:],
-	}, nil
 }
