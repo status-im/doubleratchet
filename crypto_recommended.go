@@ -77,7 +77,15 @@ func (c CryptoRecommended) KdfCK(ck []byte) ([]byte, []byte) {
 	return chainKey, msgKey
 }
 
-func (c CryptoRecommended) Encrypt(mk, plaintext, associatedData []byte) (ciphertext []byte) {
+func (c CryptoRecommended) Encrypt(mk, plaintext, associatedData []byte) ([]byte, error) {
+	// TODO: Think about switching to sha512
+	salt := make([]byte, sha256.Size)
+	for i := 0; i < sha256.Size; i++ {
+		salt[i] = 0
+	}
+	// TODO: Check if HKDF is used correctly.
+	hkdf.New(sha256.New, mk, salt, []byte("pcwSByyx2CRdryCffXJwy7xgVZWtW5Sh"))
+
 	// TODO: Implement.
 
 	return nil

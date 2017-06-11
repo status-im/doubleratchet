@@ -23,7 +23,7 @@ type Crypto interface {
 
 	// Encrypt returns an AEAD encryption of plaintext with message key mk. The associated_data
 	// is authenticated but is not included in the ciphertext. The AEAD nonce may be set to a constant.
-	Encrypt(mk, plaintext, associatedData []byte) (ciphertext []byte)
+	Encrypt(mk, plaintext, associatedData []byte) (ciphertext []byte, err error)
 
 	// Decrypt returns the AEAD decryption of ciphertext with message key mk.
 	Decrypt(mk, ciphertext, associatedData []byte) (plaintext []byte)
