@@ -33,9 +33,10 @@ func (c CryptoRecommended) GenerateDH() (DHKeyPair, error) {
 }
 
 func (c CryptoRecommended) DH(dhPair DHKeyPair, dhPub []byte) []byte {
-	// TODO: Implement
+	var dhOut [32]byte
+	curve25519.ScalarMult(&dhOut, &[32]byte(dhPair.PrivateKey), &[32]byte(dhPub))
 
-	return nil
+	return dhOut[:]
 }
 
 func (c CryptoRecommended) KdfRK(rk, dhOut []byte) ([]byte, []byte, error) {
