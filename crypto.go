@@ -15,7 +15,7 @@ type Crypto interface {
 
 	// KdfRK returns a pair (32-byte root key, 32-byte chain key) as the output of applying
 	// a KDF keyed by a 32-byte root key rk to a Diffie-Hellman output dhOut.
-	KdfRK(rk, dhOut []byte) (rootKey, chainKey []byte)
+	KdfRK(rk, dhOut []byte) (rootKey, chainKey []byte, err error)
 
 	// KdfCK returns a pair (32-byte chain key, 32-byte message key) as the output of applying
 	// a KDF keyed by a 32-byte chain key ck to some constant.

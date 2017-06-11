@@ -24,6 +24,8 @@ const (
 
 // State is a state of the party involved in The Double Ratchet message exchange.
 // Operations on this object are NOT THREAD-SAFE, make sure they're done in sequence.
+// TODO: Store skipper separately.
+// TODO: Store state separately?
 type State struct {
 	// 32-byte root key. Both parties MUST agree on this key before starting a ratchet session.
 	RK []byte
@@ -76,7 +78,10 @@ func New(sharedKey, dhRemotePubKey []byte) (*State, error) {
 		return nil, fmt.Errorf("failed to generate dh pair: %s", err)
 	}
 	if len(dhRemotePubKey) > 0 {
-		s.RK, s.CKs = s.Crypto.KdfRK(sharedKey, s.Crypto.DH(s.DHs, s.DHr))
+		s.RK, s.CKs, err = s.Crypto.KdfRK(sharedKey, s.Crypto.DH(s.DHs, s.DHr))
+		if err != nil {
+			return nil, fmt.Errorf("failed to apply KdfRk: %s", err)
+		}
 	}
 	return s, nil
 }
@@ -160,18 +165,24 @@ func (s *State) skipMessageKeys(until uint) {
 
 // dhRatchet performs a single ratchet step.
 func (s *State) dhRatchet(mh MessageHeader) error {
+	// TODO: Discard state changes in case of error.
 	var err error
 
 	s.PN = s.Ns
 	s.Ns = 0
 	s.Nr = 0
 	s.DHr = mh.DH
-	s.RK, s.CKr = s.Crypto.KdfRK(s.RK, s.Crypto.DH(s.DHs, s.DHr))
-	// TODO: Discard state changes.
+	s.RK, s.CKr, err = s.Crypto.KdfRK(s.RK, s.Crypto.DH(s.DHs, s.DHr))
+	if err != nil {
+		return fmt.Errorf("failed to apply KdfRk: %s", err)
+	}
 	s.DHs, err = s.Crypto.GenerateDH()
 	if err != nil {
 		return fmt.Errorf("failed to generate dh pair: %s", err)
 	}
-	s.RK, s.CKs = s.Crypto.KdfRK(s.RK, s.Crypto.DH(s.DHs, s.DHr))
+	s.RK, s.CKs, err = s.Crypto.KdfRK(s.RK, s.Crypto.DH(s.DHs, s.DHr))
+	if err != nil {
+		return fmt.Errorf("failed to apply KdfRk: %s", err)
+	}
 	return nil
 }
