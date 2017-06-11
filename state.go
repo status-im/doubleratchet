@@ -70,7 +70,11 @@ func New(sharedKey, dhRemotePubKey []byte) (*State, error) {
 	}
 	// TODO: Implement option arguments and traverse through them.
 
-	s.DHs = s.Crypto.GenerateDH()
+	var err error
+	s.DHs, err = s.Crypto.GenerateDH()
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate dh pair: %s", err)
+	}
 	if len(dhRemotePubKey) > 0 {
 		s.RK, s.CKs = s.Crypto.KdfRK(sharedKey, s.Crypto.DH(s.DHs, s.DHr))
 	}
@@ -96,7 +100,7 @@ func (s *State) RatchetEncrypt(plaintext []byte, ad AssociatedData) Message {
 
 // RatchetDecrypt is called to decrypt messages.
 func (s *State) RatchetDecrypt(m Message, ad AssociatedData) ([]byte, error) {
-	plaintext, err := s.TrySkippedMessageKeys(m, ad)
+	plaintext, err := s.trySkippedMessageKeys(m, ad)
 	if err != nil {
 		return nil, fmt.Errorf("can't decrypt skipped message: %s", err)
 	}
@@ -104,10 +108,13 @@ func (s *State) RatchetDecrypt(m Message, ad AssociatedData) ([]byte, error) {
 		return plaintext, nil
 	}
 	if string(m.Header.DH) != string(s.DHs.PublicKey) {
-		s.SkipMessageKeys(m.Header.PN)
-		s.DHRatchet(m.Header)
+		s.skipMessageKeys(m.Header.PN)
+		if err := s.dhRatchet(m.Header); err != nil {
+			// TODO: Discard state changes.
+			return nil, fmt.Errorf("failed to perform ratchet step: %s", err)
+		}
 	}
-	s.SkipMessageKeys(m.Header.N)
+	s.skipMessageKeys(m.Header.N)
 	var mk []byte
 	s.CKr, mk = s.Crypto.KdfCK(s.CKr)
 	s.Nr++
@@ -115,12 +122,12 @@ func (s *State) RatchetDecrypt(m Message, ad AssociatedData) ([]byte, error) {
 	return s.Crypto.Decrypt(mk, m.Ciphertext, m.Header.EncodeWithAD(ad)), nil
 }
 
-// TrySkippedMessageKeys tries to decrypt the message with a skipped message key.
-func (s *State) TrySkippedMessageKeys(m Message, ad AssociatedData) ([]byte, error) {
+// trySkippedMessageKeys tries to decrypt the message with a skipped message key.
+func (s *State) trySkippedMessageKeys(m Message, ad AssociatedData) ([]byte, error) {
 	skippedKey := s.skippedKey(m.Header.DH, m.Header.N)
 	if mk, ok := s.MkSkipped[skippedKey]; ok {
 		delete(s.MkSkipped, skippedKey)
-		// TODO: Decrypt will probably also return an error here.
+		// TODO: Decrypt will probably also return an error here. How to handle it?
 		return s.Crypto.Decrypt(mk, m.Ciphertext, m.Header.EncodeWithAD(ad)), nil
 	}
 	return nil, nil
@@ -133,8 +140,8 @@ func (s *State) skippedKey(dh []byte, n uint) string {
 	return string(append(dh, nByte...))
 }
 
-// SkipMessageKeys skips message keys in the current receiving chain.
-func (s *State) SkipMessageKeys(until uint) {
+// skipMessageKeys skips message keys in the current receiving chain.
+func (s *State) skipMessageKeys(until uint) {
 	// TODO: What is it?..
 	if s.Nr+s.MaxSkip < until {
 		// TODO: Return error.
@@ -151,13 +158,20 @@ func (s *State) SkipMessageKeys(until uint) {
 	}
 }
 
-// DHRatchet performs a single ratchet step.
-func (s *State) DHRatchet(mh MessageHeader) {
+// dhRatchet performs a single ratchet step.
+func (s *State) dhRatchet(mh MessageHeader) error {
+	var err error
+
 	s.PN = s.Ns
 	s.Ns = 0
 	s.Nr = 0
 	s.DHr = mh.DH
 	s.RK, s.CKr = s.Crypto.KdfRK(s.RK, s.Crypto.DH(s.DHs, s.DHr))
-	s.DHs = s.Crypto.GenerateDH()
+	// TODO: Discard state changes.
+	s.DHs, err = s.Crypto.GenerateDH()
+	if err != nil {
+		return fmt.Errorf("failed to generate dh pair: %s", err)
+	}
 	s.RK, s.CKs = s.Crypto.KdfRK(s.RK, s.Crypto.DH(s.DHs, s.DHr))
+	return nil
 }
