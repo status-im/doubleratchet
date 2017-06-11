@@ -6,13 +6,15 @@ package doubleratchet
 // TODO: When the new public key should be reset?
 // TODO: Max chain length? What happens when N in message header closes in on overflowing? Perform Ratchet step?
 
-import "errors"
+import (
+	"fmt"
+)
 
 const (
 	// MaxSkip specifies the maximum number of message keys that can be skipped in a single chain.
 	MaxSkip = 1000
 
-	// TODO: nonces.
+	// TODO: nonces?
 )
 
 // State is a state of the party involved in The Double Ratchet message exchange.
@@ -34,7 +36,7 @@ type State struct {
 	Ns, Nr uint
 
 	// Number of messages in previous sending chain.
-	Pn uint
+	PN uint
 
 	// Dictionary of skipped-over message keys, indexed by ratchet public key and message number.
 	MkSkipped map[string][]byte
@@ -52,7 +54,7 @@ type State struct {
 // If this party initiates the session, pubKey must be nil.
 func New(sharedKey, dhRemotePubKey []byte) (*State, error) {
 	if len(sharedKey) == 0 {
-		return nil, errors.New("sharedKey must be set")
+		return nil, fmt.Errorf("sharedKey must be set")
 	}
 	s := &State{
 		RK:        sharedKey,
@@ -72,38 +74,85 @@ func New(sharedKey, dhRemotePubKey []byte) (*State, error) {
 
 // RatchetEncrypt performs a symmetric-key ratchet step, then encrypts the message with
 // the resulting message key.
-func (s *State) RatchetEncrypt(plaintext, associatedData []byte) Message {
+func (s *State) RatchetEncrypt(plaintext []byte, ad AssociatedData) Message {
 	var mk []byte
 	s.CKs, mk = s.Crypto.KdfCK(s.CKs)
-
-	var (
-		h = MessageHeader{
-			PublicKey: s.DHs.PublicKey,
-			N:         s.Ns,
-			Pn:        s.Pn,
-		}
-		// TODO: Are lengths more than 255 needed?
-		adEncoded   = append([]byte{byte(len(associatedData))}, associatedData...)
-		hEncoded, _ = h.MarshalBinary() // No error can happen here.
-	)
+	h := MessageHeader{
+		DH: s.DHs.PublicKey,
+		N:  s.Ns,
+		PN: s.PN,
+	}
 	s.Ns++
 	return Message{
-		Header:  h,
-		Payload: s.Crypto.Encrypt(mk, plaintext, append(adEncoded, hEncoded...)),
+		Header:     h,
+		Ciphertext: s.Crypto.Encrypt(mk, plaintext, h.EncodeWithAD(ad)),
 	}
 }
 
-//// Receive handles receiving a new message from the other party.
-//func (s *State) Receive(msg Message) {
-//	// TODO: Implement.
-//}
+// RatchetDecrypt is called to decrypt messages.
+func (s *State) RatchetDecrypt(m Message, ad AssociatedData) ([]byte, error) {
+	plaintext, err := s.TrySkippedMessageKeys(m, ad)
+	if err != nil {
+		return nil, fmt.Errorf("can't decrypt skipped message: " + err.Error())
+	}
+	if plaintext != nil {
+		return plaintext, nil
+	}
+	if string(m.Header.DH) != string(s.DHs.PublicKey) {
+		s.SkipMessageKeys(m.Header.PN)
+		s.DHRatchet(m.Header)
+	}
+	s.SkipMessageKeys(m.Header.N)
+	var mk []byte
+	s.CKr, mk = s.Crypto.KdfCK(s.CKr)
+	s.Nr++
+	// TODO: Decrypt will probably return an error.
+	return s.Crypto.Decrypt(mk, m.Ciphertext, m.Header.EncodeWithAD(ad)), nil
+}
 
-//// performDHRatchetStep performs a single ratchet step deriving a new DH output.
-//func (s *State) performDHRatchetStep(pubKey []byte) {
-//	dhOutput := s.calculateDHOutput(s.DHs.PrivateKey, pubKey)
-//	s.DHs = dhOutput
-//	// TODO: Derive new receiving/sending chain key.
-//	s.calculateDHOutput(s.DHs.PrivateKey, pubKey)
-//	// TODO: Derive new sending/receiving chain key.
-//	// TODO: Store new root key.
-//}
+// TrySkippedMessageKeys tries to decrypt the message with a skipped message key.
+func (s *State) TrySkippedMessageKeys(m Message, ad AssociatedData) ([]byte, error) {
+	skippedKey := s.skippedKey(m.Header.DH, m.Header.N)
+	if mk, ok := s.MkSkipped[skippedKey]; ok {
+		delete(s.MkSkipped, skippedKey)
+		// TODO: Decrypt will probably also return an error here.
+		return s.Crypto.Decrypt(mk, m.Ciphertext, m.Header.EncodeWithAD(ad)), nil
+	}
+	return nil, nil
+}
+
+// skippedKey forms a key for a skipped message.
+func (s *State) skippedKey(dh []byte, n uint) string {
+	// TODO: More compact representation.
+	nByte := []byte(fmt.Sprintf("_%d", n))
+	return string(append(dh, nByte...))
+}
+
+// SkipMessageKeys skips message keys in the current receiving chain.
+func (s *State) SkipMessageKeys(until uint) {
+	// TODO: What is it?..
+	if s.Nr+s.MaxSkip < until {
+		// TODO: Return error.
+		return
+	}
+	// TODO: Why?..
+	if s.CKr != nil {
+		for s.Nr < until {
+			var mk []byte
+			s.CKr, mk = s.Crypto.KdfCK(s.CKr)
+			s.MkSkipped[s.skippedKey(s.DHr, s.Nr)] = mk
+			s.Nr += 1
+		}
+	}
+}
+
+// DHRatchet performs a single ratchet step.
+func (s *State) DHRatchet(mh MessageHeader) {
+	s.PN = s.Ns
+	s.Ns = 0
+	s.Nr = 0
+	s.DHr = mh.DH
+	s.RK, s.CKr = s.Crypto.KdfRK(s.RK, s.Crypto.DH(s.DHs, s.DHr))
+	s.DHs = s.Crypto.GenerateDH()
+	s.RK, s.CKs = s.Crypto.KdfRK(s.RK, s.Crypto.DH(s.DHs, s.DHr))
+}
