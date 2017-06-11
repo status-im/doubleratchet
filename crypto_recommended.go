@@ -50,14 +50,14 @@ func (c CryptoRecommended) KdfCK(ck []byte) ([]byte, []byte) {
 	)
 
 	// TODO: Use sha512? Think about how to switch the implementation later if not.
-	hasher := hmac.New(sha256.New, ck)
+	h := hmac.New(sha256.New, ck)
 
-	hasher.Write([]byte(ckInput))
-	chainKey := hasher.Sum(nil)
-	hasher.Reset()
+	h.Write([]byte(ckInput))
+	chainKey := h.Sum(nil)
+	h.Reset()
 
-	hasher.Write([]byte(mkInput))
-	msgKey := hasher.Sum(nil)
+	h.Write([]byte(mkInput))
+	msgKey := h.Sum(nil)
 
 	return chainKey, msgKey
 }
