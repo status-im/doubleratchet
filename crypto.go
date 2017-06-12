@@ -1,12 +1,8 @@
 package doubleratchet
 
-// TODO: Replace []byte with meaningful types?
-// TODO: Constant for nonces?
-
 // Crypto is a cryptography supplement for the library.
 type Crypto interface {
 	// Generate returns a new Diffie-Hellman key pair.
-	// TODO: (privKey, pubKey []byte)?
 	GenerateDH() (DHPair, error)
 
 	// DH returns the output from the Diffie-Hellman calculation between
@@ -39,8 +35,7 @@ type Crypto interface {
 // byte sequence, a length value should be prepended to the output to ensure that the output
 // is parseable as a unique pair (ad, header).
 
-// DHPair is Diffie-Hellman's key pair consisting of the private and public keys.
-type DHPair struct {
-	PrivateKey [32]byte
-	PublicKey  [32]byte
+type DHPair interface {
+	PrivateKey() [32]byte
+	PublicKey() [32]byte
 }

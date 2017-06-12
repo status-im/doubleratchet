@@ -22,7 +22,7 @@ type DefaultCrypto struct{}
 func (c DefaultCrypto) GenerateDH() (DHPair, error) {
 	var privKey [32]byte
 	if _, err := io.ReadFull(rand.Reader, privKey[:]); err != nil {
-		return DHPair{}, fmt.Errorf("couldn't generate privKey: %s", err)
+		return dhPair{}, fmt.Errorf("couldn't generate privKey: %s", err)
 	}
 	privKey[0] &= 248
 	privKey[31] &= 127
@@ -30,15 +30,18 @@ func (c DefaultCrypto) GenerateDH() (DHPair, error) {
 
 	var pubKey [32]byte
 	curve25519.ScalarBaseMult(&pubKey, &privKey)
-	return DHPair{
-		PrivateKey: privKey,
-		PublicKey:  pubKey,
+	return dhPair{
+		privateKey: privKey,
+		publicKey:  pubKey,
 	}, nil
 }
 
 func (c DefaultCrypto) DH(dhPair DHPair, dhPub [32]byte) [32]byte {
-	var dhOut [32]byte
-	curve25519.ScalarMult(&dhOut, &dhPair.PrivateKey, &dhPub)
+	var (
+		dhOut   [32]byte
+		privKey [32]byte = dhPair.PrivateKey()
+	)
+	curve25519.ScalarMult(&dhOut, &privKey, &dhPub)
 	return dhOut
 }
 
@@ -140,4 +143,17 @@ func (c DefaultCrypto) computeSignature(authKey, ciphertext, associatedData []by
 	h.Write(associatedData)
 	h.Write(ciphertext)
 	return h.Sum(nil)
+}
+
+type dhPair struct {
+	privateKey [32]byte
+	publicKey  [32]byte
+}
+
+func (p dhPair) PrivateKey() [32]byte {
+	return p.privateKey
+}
+
+func (p dhPair) PublicKey() [32]byte {
+	return p.publicKey
 }

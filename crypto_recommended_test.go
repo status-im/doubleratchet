@@ -5,6 +5,24 @@ import (
 	"testing"
 )
 
+func TestDhPair(t *testing.T) {
+	// Arrange.
+	p := dhPair{
+		privateKey: [32]byte{5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5},
+		publicKey:  [32]byte{6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6},
+	}
+
+	// Act.
+	var (
+		privKey = p.PrivateKey()
+		pubKey  = p.PublicKey()
+	)
+
+	// Assert.
+	require.Equal(t, p.privateKey, privKey)
+	require.Equal(t, p.publicKey, pubKey)
+}
+
 func TestDefaultCrypto_GenerateDH_Basic(t *testing.T) {
 	// Arrange.
 	c := DefaultCrypto{}
@@ -15,15 +33,15 @@ func TestDefaultCrypto_GenerateDH_Basic(t *testing.T) {
 	// Assert.
 	require.Nil(t, err)
 
-	require.EqualValues(t, 0, pair.PrivateKey[0]&7)
-	require.EqualValues(t, 0, pair.PrivateKey[31]&128)
-	require.EqualValues(t, 64, pair.PrivateKey[31]&64)
+	require.EqualValues(t, 0, pair.PrivateKey()[0]&7)
+	require.EqualValues(t, 0, pair.PrivateKey()[31]&128)
+	require.EqualValues(t, 64, pair.PrivateKey()[31]&64)
 
-	require.NotEqual(t, [32]byte{}, pair.PrivateKey)
-	require.NotEqual(t, [32]byte{}, pair.PublicKey)
-	require.Len(t, pair.PrivateKey, 32)
-	require.Len(t, pair.PublicKey, 32)
-	require.NotEqual(t, pair.PublicKey, pair.PrivateKey)
+	require.NotEqual(t, [32]byte{}, pair.PrivateKey())
+	require.NotEqual(t, [32]byte{}, pair.PublicKey())
+	require.Len(t, pair.PrivateKey(), 32)
+	require.Len(t, pair.PublicKey(), 32)
+	require.NotEqual(t, pair.PublicKey(), pair.PrivateKey())
 }
 
 func TestDefaultCrypto_GenerateDH_DifferentKeysEveryTime(t *testing.T) {
@@ -40,12 +58,12 @@ func TestDefaultCrypto_GenerateDH_DifferentKeysEveryTime(t *testing.T) {
 
 			// Assert.
 			require.Nil(t, err)
-			require.False(t, keys[pair.PrivateKey])
-			require.False(t, keys[pair.PublicKey])
+			require.False(t, keys[pair.PrivateKey()])
+			require.False(t, keys[pair.PublicKey()])
 
 			// Preserve.
-			keys[pair.PrivateKey] = true
-			keys[pair.PublicKey] = true
+			keys[pair.PrivateKey()] = true
+			keys[pair.PublicKey()] = true
 		})
 	}
 }
@@ -58,8 +76,8 @@ func TestDefaultCrypto_DH(t *testing.T) {
 	var (
 		alicePair, err1 = c.GenerateDH()
 		bobPair, err2   = c.GenerateDH()
-		aliceSK         = c.DH(alicePair, bobPair.PublicKey)
-		bobSK           = c.DH(bobPair, alicePair.PublicKey)
+		aliceSK         = c.DH(alicePair, bobPair.PublicKey())
+		bobSK           = c.DH(bobPair, alicePair.PublicKey())
 	)
 
 	// Assert.

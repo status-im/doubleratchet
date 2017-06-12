@@ -90,7 +90,7 @@ func (s *State) RatchetEncrypt(plaintext []byte, ad AssociatedData) Message {
 	var mk [32]byte
 	s.CKs, mk = s.Crypto.KdfCK(s.CKs)
 	h := MessageHeader{
-		DH: s.DHs.PublicKey,
+		DH: s.DHs.PublicKey(),
 		N:  s.Ns,
 		PN: s.PN,
 	}
@@ -111,7 +111,7 @@ func (s *State) RatchetDecrypt(m Message, ad AssociatedData) ([]byte, error) {
 	if plaintext != nil {
 		return plaintext, nil
 	}
-	if m.Header.DH != s.DHs.PublicKey {
+	if m.Header.DH != s.DHs.PublicKey() {
 		s.skipMessageKeys(m.Header.PN)
 		if err := s.dhRatchet(m.Header); err != nil {
 			// TODO: Rollback state changes.
