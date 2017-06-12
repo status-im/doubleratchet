@@ -160,7 +160,7 @@ func TestDefaultCrypto_EncryptDecrypt(t *testing.T) {
 		require.Equal(t, msg, plaintext)
 	})
 
-	t.Run("associated data", func(t *testing.T) {
+	t.Run("same associated data", func(t *testing.T) {
 		// Act.
 		var (
 			ciphertext     = c.Encrypt(mk, msg, []byte("any secret"))
@@ -173,7 +173,18 @@ func TestDefaultCrypto_EncryptDecrypt(t *testing.T) {
 		require.Equal(t, msg, plaintext)
 	})
 
-	t.Run("invalid signature", func(t *testing.T) {
+	t.Run("different associated data", func(t *testing.T) {
+		// Act.
+		var (
+			ciphertext = c.Encrypt(mk, msg, []byte("not secret at all"))
+			_, err     = c.Decrypt(mk, ciphertext, []byte("any secret"))
+		)
+
+		// Assert.
+		require.EqualError(t, err, "invalid signature")
+	})
+
+	t.Run("malformed signature", func(t *testing.T) {
 		// Act.
 		ciphertext := c.Encrypt(mk, msg, nil)
 		ciphertext[len(ciphertext)-1] ^= 57 // Inverse the last byte in the signature.
