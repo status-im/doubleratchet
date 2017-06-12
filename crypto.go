@@ -11,7 +11,7 @@ type Crypto interface {
 
 	// DH returns the output from the Diffie-Hellman calculation between
 	// the private key from the DH key pair dhPair and the DH public key dbPub.
-	DH(dhPair DHPair, dhPub []byte) []byte
+	DH(dhPair DHPair, dhPub [32]byte) []byte
 
 	// KdfRK returns a pair (32-byte root key, 32-byte chain key) as the output of applying
 	// a KDF keyed by a 32-byte root key rk to a Diffie-Hellman output dhOut.
@@ -41,6 +41,6 @@ type Crypto interface {
 
 // DHPair is Diffie-Hellman's key pair consisting of the private and public keys.
 type DHPair struct {
-	PrivateKey []byte
-	PublicKey  []byte
+	PrivateKey [32]byte
+	PublicKey  [32]byte
 }

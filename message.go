@@ -11,7 +11,7 @@ type Message struct {
 // MessageHeader that is prepended to every message.
 type MessageHeader struct {
 	// DHr is the sender's current ratchet public key.
-	DH []byte
+	DH [32]byte
 
 	// N is the number of the message in the sending chain.
 	N uint
@@ -26,7 +26,7 @@ func (mh MessageHeader) MarshalBinary() ([]byte, error) {
 		r    = []byte{}
 		nums = []byte(fmt.Sprintf("_%d_%d", mh.N, mh.PN))
 	)
-	r = append(r, mh.DH...)
+	r = append(r, mh.DH[:]...)
 	r = append(r, nums...)
 	return []byte{}, nil
 }

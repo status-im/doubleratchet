@@ -31,7 +31,7 @@ type State struct {
 	RK []byte
 
 	// DH Ratchet public key (the remote key).
-	DHr []byte
+	DHr [32]byte
 
 	// DH Ratchet key pair (the self ratchet key).
 	DHs DHPair
@@ -59,12 +59,12 @@ type State struct {
 // TODO: Set up optional values with functional options.
 // New creates State with the shared key and public key of the other party initiating the session.
 // If this party initiates the session, pubKey must be nil.
-func New(sharedKey, dhRemotePubKey []byte) (*State, error) {
+func New(sharedKey, dhRemotePubKey [32]byte) (*State, error) {
 	if len(sharedKey) == 0 {
 		return nil, fmt.Errorf("sharedKey must be set")
 	}
 	s := &State{
-		RK:        sharedKey,
+		RK:        sharedKey[:],
 		DHr:       dhRemotePubKey,
 		MkSkipped: make(map[string][]byte),
 		MaxSkip:   MaxSkip,
@@ -77,8 +77,9 @@ func New(sharedKey, dhRemotePubKey []byte) (*State, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate dh pair: %s", err)
 	}
+	// FIXME: Make dhRemotePubKey optional.
 	if len(dhRemotePubKey) > 0 {
-		s.RK, s.CKs, err = s.Crypto.KdfRK(sharedKey, s.Crypto.DH(s.DHs, s.DHr))
+		s.RK, s.CKs, err = s.Crypto.KdfRK(sharedKey[:], s.Crypto.DH(s.DHs, s.DHr))
 		if err != nil {
 			return nil, fmt.Errorf("failed to apply KdfRk: %s", err)
 		}
@@ -117,7 +118,7 @@ func (s *State) RatchetDecrypt(m Message, ad AssociatedData) ([]byte, error) {
 	if plaintext != nil {
 		return plaintext, nil
 	}
-	if string(m.Header.DH) != string(s.DHs.PublicKey) {
+	if m.Header.DH != s.DHs.PublicKey {
 		s.skipMessageKeys(m.Header.PN)
 		if err := s.dhRatchet(m.Header); err != nil {
 			// TODO: Discard state changes.
@@ -134,7 +135,7 @@ func (s *State) RatchetDecrypt(m Message, ad AssociatedData) ([]byte, error) {
 
 // trySkippedMessageKeys tries to decrypt the message with a skipped message key.
 func (s *State) trySkippedMessageKeys(m Message, ad AssociatedData) ([]byte, error) {
-	skippedKey := s.skippedKey(m.Header.DH, m.Header.N)
+	skippedKey := s.skippedKey(m.Header.DH[:], m.Header.N)
 	if mk, ok := s.MkSkipped[skippedKey]; ok {
 		delete(s.MkSkipped, skippedKey)
 		// TODO: Discard the message in case of error and rollback the skipped key.
@@ -162,7 +163,7 @@ func (s *State) skipMessageKeys(until uint) {
 		for s.Nr < until {
 			var mk []byte
 			s.CKr, mk = s.Crypto.KdfCK(s.CKr)
-			s.MkSkipped[s.skippedKey(s.DHr, s.Nr)] = mk
+			s.MkSkipped[s.skippedKey(s.DHr[:], s.Nr)] = mk
 			s.Nr += 1
 		}
 	}

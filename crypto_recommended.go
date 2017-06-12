@@ -7,6 +7,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"fmt"
+	"bytes"
 	"io"
 
 	"golang.org/x/crypto/curve25519"
@@ -30,14 +31,14 @@ func (c DefaultCrypto) GenerateDH() (DHPair, error) {
 	var pubKey [32]byte
 	curve25519.ScalarBaseMult(&pubKey, &privKey)
 	return DHPair{
-		PrivateKey: privKey[:],
-		PublicKey:  pubKey[:],
+		PrivateKey: privKey,
+		PublicKey:  pubKey,
 	}, nil
 }
 
-func (c DefaultCrypto) DH(dhPair DHPair, dhPub []byte) []byte {
+func (c DefaultCrypto) DH(dhPair DHPair, dhPub [32]byte) []byte {
 	var dhOut [32]byte
-	curve25519.ScalarMult(&dhOut, &[32]byte(dhPair.PrivateKey), &[32]byte(dhPub))
+	curve25519.ScalarMult(&dhOut, &dhPair.PrivateKey, &dhPub)
 
 	return dhOut[:]
 }
@@ -65,12 +66,12 @@ func (c DefaultCrypto) KdfCK(ck []byte) ([]byte, []byte) {
 	h := hmac.New(sha256.New, ck)
 
 	// TODO: Handle error?
-	h.Write([]byte(ckInput))
+	h.Write([]byte{ckInput})
 	chainKey := h.Sum(nil)
 	h.Reset()
 
 	// TODO: Handle error?
-	h.Write([]byte(mkInput))
+	h.Write([]byte{mkInput})
 	msgKey := h.Sum(nil)
 
 	return chainKey, msgKey
@@ -111,7 +112,7 @@ func (c DefaultCrypto) Decrypt(mk, authCiphertext, associatedData []byte) ([]byt
 	if err != nil {
 		return nil, err
 	}
-	if s := c.authCiphertext(authKey, ciphertext, associatedData)[l-aes.BlockSize:]; string(s) != string(signature) {
+	if s := c.authCiphertext(authKey, ciphertext, associatedData)[l-aes.BlockSize:]; !bytes.Equal(s, signature) {
 		return nil, fmt.Errorf("invalid signature")
 	}
 
