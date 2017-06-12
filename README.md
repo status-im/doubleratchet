@@ -1,7 +1,7 @@
 # doubleratchet
 
 [The Double Ratchet Algorithm](https://whispersystems.org/docs/specifications/doubleratchet) Golang implementation.
-The current version is being developed at the moment, it is still incomplete and cannot be used anywhere. 
+The current version is in active development at the moment, it is still incomplete and cannot be used anywhere. 
 
 ## Installation
 
