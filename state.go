@@ -16,10 +16,8 @@ import (
 )
 
 const (
-	// MaxSkip specifies the maximum number of message keys that can be skipped in a single chain.
+	// Maximum number of message keys that can be skipped in a single chain.
 	MaxSkip = 1000
-
-	// TODO: nonces?
 )
 
 // State is a state of the party involved in The Double Ratchet message exchange.
@@ -56,32 +54,55 @@ type State struct {
 	Crypto Crypto
 }
 
-// TODO: Set up optional values with functional options.
 // New creates State with the shared key and public key of the other party initiating the session.
 // If this party initiates the session, pubKey must be nil.
-func New(sharedKey, dhRemotePubKey [32]byte) (*State, error) {
+func New(sharedKey [32]byte, opts ...Option) (*State, error) {
 	if len(sharedKey) == 0 {
 		return nil, fmt.Errorf("sharedKey must be set")
 	}
 	s := &State{
 		RK:        sharedKey,
-		DHr:       dhRemotePubKey,
 		MkSkipped: make(map[string][32]byte),
 		MaxSkip:   MaxSkip,
 		Crypto:    DefaultCrypto{},
 	}
-	// TODO: Implement option arguments and traverse through them.
 
 	var err error
 	s.DHs, err = s.Crypto.GenerateDH()
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate dh pair: %s", err)
 	}
-	// FIXME: Make dhRemotePubKey optional.
-	if len(dhRemotePubKey) > 0 {
-		s.RK, s.CKs = s.Crypto.KdfRK(sharedKey, s.Crypto.DH(s.DHs, s.DHr))
+
+	for i := range opts {
+		if err := opts[i](s); err != nil {
+			return nil, fmt.Errorf("failed to apply option: %s", err)
+		}
 	}
+
 	return s, nil
+}
+
+// Option is a constructor option.
+type Option func(*State) error
+
+// WithRemoteKey specifies the remote public key for the sending chain.
+func WithRemoteKey(dhRemotePubKey [32]byte) Option {
+	return func(s *State) error {
+		s.DHr = dhRemotePubKey
+		s.RK, s.CKs = s.Crypto.KdfRK(s.RK, s.Crypto.DH(s.DHs, s.DHr))
+		return nil
+	}
+}
+
+// WithMaxSkip specifies the maximum number of skipped message in a single chain.
+func WithMaxSkip(maxSkip int) Option {
+	return func(s *State) error {
+		if maxSkip < 0 {
+			return fmt.Errorf("maxSkip must be non-negative")
+		}
+		s.MaxSkip = uint(maxSkip)
+		return nil
+	}
 }
 
 // RatchetEncrypt performs a symmetric-key ratchet step, then encrypts the message with
