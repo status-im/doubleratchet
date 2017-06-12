@@ -15,7 +15,7 @@ type Crypto interface {
 
 	// KdfRK returns a pair (32-byte root key, 32-byte chain key) as the output of applying
 	// a KDF keyed by a 32-byte root key rk to a Diffie-Hellman output dhOut.
-	KdfRK(rk, dhOut [32]byte) (rootKey, chainKey [32]byte, err error)
+	KdfRK(rk, dhOut [32]byte) (rootKey, chainKey [32]byte)
 
 	// KdfCK returns a pair (32-byte chain key, 32-byte message key) as the output of applying
 	// a KDF keyed by a 32-byte chain key ck to some constant.
@@ -23,7 +23,7 @@ type Crypto interface {
 
 	// Encrypt returns an AEAD encryption of plaintext with message key mk. The associated_data
 	// is authenticated but is not included in the ciphertext. The AEAD nonce may be set to a constant.
-	Encrypt(mk [32]byte, plaintext, associatedData []byte) (authCiphertext []byte, err error)
+	Encrypt(mk [32]byte, plaintext, associatedData []byte) (authCiphertext []byte)
 
 	// Decrypt returns the AEAD decryption of ciphertext with message key mk.
 	Decrypt(mk [32]byte, ciphertext, associatedData []byte) (plaintext []byte, err error)

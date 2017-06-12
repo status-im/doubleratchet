@@ -79,17 +79,14 @@ func New(sharedKey, dhRemotePubKey [32]byte) (*State, error) {
 	}
 	// FIXME: Make dhRemotePubKey optional.
 	if len(dhRemotePubKey) > 0 {
-		s.RK, s.CKs, err = s.Crypto.KdfRK(sharedKey, s.Crypto.DH(s.DHs, s.DHr))
-		if err != nil {
-			return nil, fmt.Errorf("failed to apply KdfRk: %s", err)
-		}
+		s.RK, s.CKs = s.Crypto.KdfRK(sharedKey, s.Crypto.DH(s.DHs, s.DHr))
 	}
 	return s, nil
 }
 
 // RatchetEncrypt performs a symmetric-key ratchet step, then encrypts the message with
 // the resulting message key.
-func (s *State) RatchetEncrypt(plaintext []byte, ad AssociatedData) (Message, error) {
+func (s *State) RatchetEncrypt(plaintext []byte, ad AssociatedData) Message {
 	var mk [32]byte
 	s.CKs, mk = s.Crypto.KdfCK(s.CKs)
 	h := MessageHeader{
@@ -98,15 +95,11 @@ func (s *State) RatchetEncrypt(plaintext []byte, ad AssociatedData) (Message, er
 		PN: s.PN,
 	}
 	s.Ns++
-	ciphertext, err := s.Crypto.Encrypt(mk, plaintext, h.EncodeWithAD(ad))
-	// TODO: Rollback state when an error occurs.
-	if err != nil {
-		return Message{}, fmt.Errorf("failed to encrypt plaintext: %s", err)
-	}
+	ciphertext := s.Crypto.Encrypt(mk, plaintext, h.EncodeWithAD(ad))
 	return Message{
 		Header:     h,
 		Ciphertext: ciphertext,
-	}, err
+	}
 }
 
 // RatchetDecrypt is called to decrypt messages.
@@ -121,7 +114,7 @@ func (s *State) RatchetDecrypt(m Message, ad AssociatedData) ([]byte, error) {
 	if m.Header.DH != s.DHs.PublicKey {
 		s.skipMessageKeys(m.Header.PN)
 		if err := s.dhRatchet(m.Header); err != nil {
-			// TODO: Discard state changes.
+			// TODO: Rollback state changes.
 			return nil, fmt.Errorf("failed to perform ratchet step: %s", err)
 		}
 	}
@@ -179,17 +172,11 @@ func (s *State) dhRatchet(mh MessageHeader) error {
 	s.Ns = 0
 	s.Nr = 0
 	s.DHr = mh.DH
-	s.RK, s.CKr, err = s.Crypto.KdfRK(s.RK, s.Crypto.DH(s.DHs, s.DHr))
-	if err != nil {
-		return fmt.Errorf("failed to apply KdfRk: %s", err)
-	}
+	s.RK, s.CKr = s.Crypto.KdfRK(s.RK, s.Crypto.DH(s.DHs, s.DHr))
 	s.DHs, err = s.Crypto.GenerateDH()
 	if err != nil {
 		return fmt.Errorf("failed to generate dh pair: %s", err)
 	}
-	s.RK, s.CKs, err = s.Crypto.KdfRK(s.RK, s.Crypto.DH(s.DHs, s.DHr))
-	if err != nil {
-		return fmt.Errorf("failed to apply KdfRk: %s", err)
-	}
+	s.RK, s.CKs = s.Crypto.KdfRK(s.RK, s.Crypto.DH(s.DHs, s.DHr))
 	return nil
 }
