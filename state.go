@@ -28,7 +28,7 @@ const (
 // TODO: Store state separately?
 type State struct {
 	// 32-byte root key. Both parties MUST agree on this key before starting a ratchet session.
-	RK []byte
+	RK [32]byte
 
 	// DH Ratchet public key (the remote key).
 	DHr [32]byte
@@ -37,7 +37,7 @@ type State struct {
 	DHs DHPair
 
 	// 32-byte Chain Keys for sending and receiving.
-	CKs, CKr []byte
+	CKs, CKr [32]byte
 
 	// Message numbers for sending and receiving.
 	Ns, Nr uint
@@ -46,7 +46,7 @@ type State struct {
 	PN uint
 
 	// Dictionary of skipped-over message keys, indexed by ratchet public key and message number.
-	MkSkipped map[string][]byte
+	MkSkipped map[string][32]byte
 
 	// MaxSkip should be set high enough to tolerate routine lost or delayed messages,
 	// but low enough that a malicious sender can't trigger excessive recipient computation.
@@ -64,9 +64,9 @@ func New(sharedKey, dhRemotePubKey [32]byte) (*State, error) {
 		return nil, fmt.Errorf("sharedKey must be set")
 	}
 	s := &State{
-		RK:        sharedKey[:],
+		RK:        sharedKey,
 		DHr:       dhRemotePubKey,
-		MkSkipped: make(map[string][]byte),
+		MkSkipped: make(map[string][32]byte),
 		MaxSkip:   MaxSkip,
 		Crypto:    DefaultCrypto{},
 	}
@@ -79,7 +79,7 @@ func New(sharedKey, dhRemotePubKey [32]byte) (*State, error) {
 	}
 	// FIXME: Make dhRemotePubKey optional.
 	if len(dhRemotePubKey) > 0 {
-		s.RK, s.CKs, err = s.Crypto.KdfRK(sharedKey[:], s.Crypto.DH(s.DHs, s.DHr))
+		s.RK, s.CKs, err = s.Crypto.KdfRK(sharedKey, s.Crypto.DH(s.DHs, s.DHr))
 		if err != nil {
 			return nil, fmt.Errorf("failed to apply KdfRk: %s", err)
 		}
@@ -90,7 +90,7 @@ func New(sharedKey, dhRemotePubKey [32]byte) (*State, error) {
 // RatchetEncrypt performs a symmetric-key ratchet step, then encrypts the message with
 // the resulting message key.
 func (s *State) RatchetEncrypt(plaintext []byte, ad AssociatedData) (Message, error) {
-	var mk []byte
+	var mk [32]byte
 	s.CKs, mk = s.Crypto.KdfCK(s.CKs)
 	h := MessageHeader{
 		DH: s.DHs.PublicKey,
@@ -126,7 +126,7 @@ func (s *State) RatchetDecrypt(m Message, ad AssociatedData) ([]byte, error) {
 		}
 	}
 	s.skipMessageKeys(m.Header.N)
-	var mk []byte
+	var mk [32]byte
 	s.CKr, mk = s.Crypto.KdfCK(s.CKr)
 	s.Nr++
 	// TODO: Discard the message in case of error and rollback the skipped key.
@@ -159,14 +159,15 @@ func (s *State) skipMessageKeys(until uint) {
 		return
 	}
 	// TODO: Why?..
-	if s.CKr != nil {
-		for s.Nr < until {
-			var mk []byte
-			s.CKr, mk = s.Crypto.KdfCK(s.CKr)
-			s.MkSkipped[s.skippedKey(s.DHr[:], s.Nr)] = mk
-			s.Nr += 1
-		}
-	}
+	// TODO: Fill CKr with something so that there's no such a check.
+	//if s.CKr != nil {
+	//for s.Nr < until {
+	//	var mk [32]byte
+	//	s.CKr, mk = s.Crypto.KdfCK(s.CKr)
+	//	s.MkSkipped[s.skippedKey(s.DHr[:], s.Nr)] = mk
+	//	s.Nr += 1
+	//}
+	//}
 }
 
 // dhRatchet performs a single ratchet step.
