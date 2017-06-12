@@ -33,7 +33,7 @@ func TestDefaultCrypto_GenerateDH_DifferentKeysEveryTime(t *testing.T) {
 		keys = make(map[[32]byte]bool)
 	)
 
-	for i := 0; i < 100; i++ {
+	for i := 0; i < 10; i++ {
 		t.Run("", func(t *testing.T) {
 			// Act.
 			pair, err := c.GenerateDH()
@@ -120,7 +120,7 @@ func TestDefaultCrypto_deriveEncKeys(t *testing.T) {
 	require.NotEqual(t, encKey, authKey)
 }
 
-func TestDefaultCrypto_authCiphertext(t *testing.T) {
+func TestDefaultCrypto_computeSignature(t *testing.T) {
 	// Arrange.
 	var (
 		c          = DefaultCrypto{}
@@ -128,15 +128,15 @@ func TestDefaultCrypto_authCiphertext(t *testing.T) {
 	)
 
 	// Act.
-	authCiphertext := c.authCiphertext(
+	signature := c.computeSignature(
 		[]byte{0xeb, 0x8, 0x10, 0x7c, 0x33, 0x54, 0x0, 0x20, 0xe9, 0x4f, 0x6c, 0x84, 0xe4, 0x39, 0x50, 0x5a, 0x2f, 0x60, 0xbe, 0x81, 0xa, 0x78, 0x8b, 0xeb, 0x1e, 0x2c, 0x9, 0x8d, 0x4b, 0x4d, 0xc1, 0x40},
 		ciphertext,
 		nil,
 	)
 
 	// Assert.
-	require.Len(t, authCiphertext, 32+len(ciphertext))
-	require.Equal(t, ciphertext, authCiphertext[:len(ciphertext)])
+	require.Len(t, signature, 32)
+	require.NotEqual(t, [32]byte{}, signature)
 }
 
 func TestDefaultCrypto_EncryptDecrypt(t *testing.T) {
@@ -156,7 +156,7 @@ func TestDefaultCrypto_EncryptDecrypt(t *testing.T) {
 
 		// Assert.
 		require.Nil(t, err)
-		require.Len(t, ciphertext, 32+16+len(msg)) // signature + iv + plaintext length
+		require.Len(t, ciphertext, 16+len(msg)+32) // iv + plaintext length + signature
 		require.Equal(t, msg, plaintext)
 	})
 
@@ -171,5 +171,15 @@ func TestDefaultCrypto_EncryptDecrypt(t *testing.T) {
 		require.Nil(t, err)
 		require.Len(t, ciphertext, 32+16+len(msg)) // signature + iv + plaintext length
 		require.Equal(t, msg, plaintext)
+	})
+
+	t.Run("invalid signature", func(t *testing.T) {
+		// Act.
+		ciphertext := c.Encrypt(mk, msg, nil)
+		ciphertext[len(ciphertext)-1] ^= 57 // Inverse the last byte in the signature.
+		_, err := c.Decrypt(mk, ciphertext, nil)
+
+		// Assert.
+		require.EqualError(t, err, "invalid signature")
 	})
 }

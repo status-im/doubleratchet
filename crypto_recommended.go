@@ -62,15 +62,12 @@ func (c DefaultCrypto) KdfCK(ck [32]byte) (chainKey [32]byte, msgKey [32]byte) {
 		mkInput = 16
 	)
 
-	// TODO: Use sha512? Think about how to switch the implementation later if not.
 	h := hmac.New(sha256.New, ck[:])
 
-	// TODO: Handle error?
 	h.Write([]byte{ckInput})
 	copy(chainKey[:], h.Sum(nil))
 	h.Reset()
 
-	// TODO: Handle error?
 	h.Write([]byte{mkInput})
 	copy(msgKey[:], h.Sum(nil))
 
@@ -84,49 +81,47 @@ func (c DefaultCrypto) Encrypt(mk [32]byte, plaintext, associatedData []byte) []
 	encKey, authKey, iv := c.deriveEncKeys(mk)
 
 	ciphertext := make([]byte, aes.BlockSize+len(plaintext))
-	copy(ciphertext[:len(iv)], iv[:])
+	copy(ciphertext, iv[:])
 
-	// No error will occur here as encKey is guaranteed to be 32 bytes.
-	block, _ := aes.NewCipher(encKey[:])
-
-	stream := cipher.NewCTR(block, iv[:])
+	var (
+		block, _ = aes.NewCipher(encKey[:]) // No error will occur here as encKey is guaranteed to be 32 bytes.
+		stream   = cipher.NewCTR(block, iv[:])
+	)
 	stream.XORKeyStream(ciphertext[aes.BlockSize:], plaintext)
 
-	return c.authCiphertext(authKey[:], ciphertext, associatedData)
+	return append(ciphertext, c.computeSignature(authKey[:], ciphertext, associatedData)...)
 }
 
 func (c DefaultCrypto) Decrypt(mk [32]byte, authCiphertext, associatedData []byte) ([]byte, error) {
 	var (
 		l          = len(authCiphertext)
-		iv         = authCiphertext[:aes.BlockSize]
-		ciphertext = authCiphertext[aes.BlockSize : l-sha256.Size]
+		ciphertext = authCiphertext[:l-sha256.Size]
 		signature  = authCiphertext[l-sha256.Size:]
 	)
 
 	// Check the signature.
 	encKey, authKey, _ := c.deriveEncKeys(mk)
-	if s := c.authCiphertext(authKey[:], ciphertext, associatedData)[l-aes.BlockSize-sha256.Size:]; !bytes.Equal(s, signature) {
+
+	if s := c.computeSignature(authKey[:], ciphertext, associatedData); !bytes.Equal(s, signature) {
 		return nil, fmt.Errorf("invalid signature")
 	}
 
 	// Decrypt.
 	var (
 		block, _  = aes.NewCipher(encKey[:]) // No error will occur here as encKey is guaranteed to be 32 bytes.
-		stream    = cipher.NewCTR(block, iv)
-		plaintext = make([]byte, len(ciphertext))
+		stream    = cipher.NewCTR(block, ciphertext[:aes.BlockSize])
+		plaintext = make([]byte, len(ciphertext[aes.BlockSize:]))
 	)
-	stream.XORKeyStream(plaintext, ciphertext)
+	stream.XORKeyStream(plaintext, ciphertext[aes.BlockSize:])
 
 	return plaintext, nil
 }
 
 // deriveEncKeys derive keys for message encryption and decryption. Returns (encKey, authKey, iv, err).
 func (c DefaultCrypto) deriveEncKeys(mk [32]byte) (encKey [32]byte, authKey [32]byte, iv [16]byte) {
-	// TODO: Think about switching to sha512
 	// First, derive encryption and authentication key out of mk.
 	salt := make([]byte, 32)
 	var (
-		// TODO: Check if HKDF is used correctly.
 		r   = hkdf.New(sha256.New, mk[:], salt, []byte("pcwSByyx2CRdryCffXJwy7xgVZWtW5Sh"))
 		buf = make([]byte, 80)
 	)
@@ -140,9 +135,9 @@ func (c DefaultCrypto) deriveEncKeys(mk [32]byte) (encKey [32]byte, authKey [32]
 	return
 }
 
-func (c DefaultCrypto) authCiphertext(authKey, ciphertext, associatedData []byte) []byte {
+func (c DefaultCrypto) computeSignature(authKey, ciphertext, associatedData []byte) []byte {
 	h := hmac.New(sha256.New, authKey)
 	h.Write(associatedData)
 	h.Write(ciphertext)
-	return h.Sum(ciphertext)
+	return h.Sum(nil)
 }
