@@ -46,19 +46,13 @@ func (c DefaultCrypto) KdfRK(rk, dhOut []byte) ([]byte, []byte, error) {
 	// TODO: Use sha512? Think about how to switch the implementation later if not.
 	var (
 		// TODO: Check if HKDF is set up correctly.
-		r        = hkdf.New(sha256.New, dhOut, rk, []byte("rsZUpEuXUqqwXBvSy3EcievAh4cMj6QL"))
-		chainKey = make([]byte, 32)
-		rootKey  = make([]byte, 32)
+		r   = hkdf.New(sha256.New, dhOut, rk, []byte("rsZUpEuXUqqwXBvSy3EcievAh4cMj6QL"))
+		buf = make([]byte, 64)
 	)
-
-	if _, err := io.ReadFull(r, chainKey); err != nil {
-		return nil, nil, fmt.Errorf("failed to generate chain key: %s", err)
+	if _, err := io.ReadFull(r, buf); err != nil {
+		return nil, nil, fmt.Errorf("failed to generate keys: %s", err)
 	}
-	if _, err := io.ReadFull(r, rootKey); err != nil {
-		return nil, nil, fmt.Errorf("failed to generate root key: %s", err)
-	}
-
-	return chainKey, rootKey, nil
+	return buf[:32], buf[32:], nil
 }
 
 func (c DefaultCrypto) KdfCK(ck []byte) ([]byte, []byte) {
