@@ -34,7 +34,7 @@ type State struct {
 	DHr []byte
 
 	// DH Ratchet key pair (the self ratchet key).
-	DHs DHKeyPair
+	DHs DHPair
 
 	// 32-byte Chain Keys for sending and receiving.
 	CKs, CKr []byte

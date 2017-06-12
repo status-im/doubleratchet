@@ -18,10 +18,10 @@ import (
 // see function comments for details.
 type DefaultCrypto struct{}
 
-func (c DefaultCrypto) GenerateDH() (DHKeyPair, error) {
+func (c DefaultCrypto) GenerateDH() (DHPair, error) {
 	var privKey [32]byte
 	if _, err := io.ReadFull(rand.Reader, privKey[:]); err != nil {
-		return DHKeyPair{}, fmt.Errorf("couldn't generate privKey: %s", err)
+		return DHPair{}, fmt.Errorf("couldn't generate privKey: %s", err)
 	}
 	privKey[0] &= 248
 	privKey[31] &= 127
@@ -29,13 +29,13 @@ func (c DefaultCrypto) GenerateDH() (DHKeyPair, error) {
 
 	var pubKey [32]byte
 	curve25519.ScalarBaseMult(&pubKey, &privKey)
-	return DHKeyPair{
+	return DHPair{
 		PrivateKey: privKey[:],
 		PublicKey:  pubKey[:],
 	}, nil
 }
 
-func (c DefaultCrypto) DH(dhPair DHKeyPair, dhPub []byte) []byte {
+func (c DefaultCrypto) DH(dhPair DHPair, dhPub []byte) []byte {
 	var dhOut [32]byte
 	curve25519.ScalarMult(&dhOut, &[32]byte(dhPair.PrivateKey), &[32]byte(dhPub))
 

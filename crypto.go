@@ -7,11 +7,11 @@ package doubleratchet
 type Crypto interface {
 	// Generate returns a new Diffie-Hellman key pair.
 	// TODO: (privKey, pubKey []byte)?
-	GenerateDH() (DHKeyPair, error)
+	GenerateDH() (DHPair, error)
 
 	// DH returns the output from the Diffie-Hellman calculation between
 	// the private key from the DH key pair dhPair and the DH public key dbPub.
-	DH(dhPair DHKeyPair, dhPub []byte) []byte
+	DH(dhPair DHPair, dhPub []byte) []byte
 
 	// KdfRK returns a pair (32-byte root key, 32-byte chain key) as the output of applying
 	// a KDF keyed by a 32-byte root key rk to a Diffie-Hellman output dhOut.
@@ -39,8 +39,8 @@ type Crypto interface {
 // byte sequence, a length value should be prepended to the output to ensure that the output
 // is parseable as a unique pair (ad, header).
 
-// DHKeyPair is Diffie-Hellman's key pair consisting of the private and public keys.
-type DHKeyPair struct {
+// DHPair is Diffie-Hellman's key pair consisting of the private and public keys.
+type DHPair struct {
 	PrivateKey []byte
 	PublicKey  []byte
 }
