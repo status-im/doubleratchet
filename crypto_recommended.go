@@ -86,29 +86,12 @@ func (c DefaultCrypto) KdfCK(ck []byte) ([]byte, []byte) {
 // it uses AES-256-CTR instead of AES-256-CBC for security, ciphertext length and implementation
 // complexity considerations.
 func (c DefaultCrypto) Encrypt(mk, plaintext, associatedData []byte) ([]byte, error) {
-	// TODO: Think about switching to sha512
-	// First, derive encryption and authentication key out of mk.
-	salt := make([]byte, sha256.Size)
-	for i := 0; i < sha256.Size; i++ {
-		salt[i] = 0
+	encKey, authKey, iv, err := c.deriveEncKeys(mk)
+	if err != nil {
+		return nil, err
 	}
-	var (
-		// TODO: Check if HKDF is used correctly.
-		r   = hkdf.New(sha256.New, mk, salt, []byte("pcwSByyx2CRdryCffXJwy7xgVZWtW5Sh"))
-		buf = make([]byte, 80)
-	)
-	if _, err := io.ReadFull(r, buf); err != nil {
-		return nil, fmt.Errorf("failed to generate encryption keys: %s", err)
-	}
-	var (
-		encKey  = buf[0:32]
-		authKey = buf[32:64]
-		iv      = buf[64:80]
 
-		ciphertext = make([]byte, aes.BlockSize+len(plaintext))
-	)
-
-	// Then, obtain the ciphertext.
+	ciphertext := make([]byte, aes.BlockSize+len(plaintext))
 	for i := 0; i < len(iv); i++ {
 		ciphertext[i] = iv[i]
 	}
@@ -119,17 +102,61 @@ func (c DefaultCrypto) Encrypt(mk, plaintext, associatedData []byte) ([]byte, er
 	stream := cipher.NewCTR(block, iv)
 	stream.XORKeyStream(ciphertext[aes.BlockSize:], plaintext)
 
-	// Now authenticate the ciphertext.
+	return c.authCiphertext(authKey, ciphertext, associatedData), nil
+}
+
+func (c DefaultCrypto) Decrypt(mk, authCiphertext, associatedData []byte) ([]byte, error) {
+	var (
+		l          = len(authCiphertext)
+		iv         = authCiphertext[:aes.BlockSize]
+		ciphertext = authCiphertext[aes.BlockSize : l-sha256.Size]
+		signature  = authCiphertext[l-sha256.Size:]
+	)
+
+	// Check the signature.
+	encKey, authKey, _, err := c.deriveEncKeys(mk)
+	if err != nil {
+		return nil, err
+	}
+	if s := c.authCiphertext(authKey, ciphertext, associatedData)[l-aes.BlockSize:]; string(s) != string(signature) {
+		return nil, fmt.Errorf("invalid signature")
+	}
+
+	// Decrypt.
+	block, err := aes.NewCipher(encKey)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create aes block cipher: %s", err)
+	}
+	var (
+		stream    = cipher.NewCTR(block, iv)
+		plaintext = make([]byte, len(ciphertext))
+	)
+	stream.XORKeyStream(plaintext, ciphertext)
+
+	return plaintext, nil
+}
+
+// deriveEncKeys derive keys for message encryption and decryption. Returns (encKey, authKey, iv, err).
+func (c DefaultCrypto) deriveEncKeys(mk []byte) ([]byte, []byte, []byte, error) {
+	// TODO: Think about switching to sha512
+	// First, derive encryption and authentication key out of mk.
+	salt := make([]byte, sha256.Size)
+	var (
+		// TODO: Check if HKDF is used correctly.
+		r   = hkdf.New(sha256.New, mk, salt, []byte("pcwSByyx2CRdryCffXJwy7xgVZWtW5Sh"))
+		buf = make([]byte, sha256.Size*2+aes.BlockSize)
+	)
+	if _, err := io.ReadFull(r, buf); err != nil {
+		return nil, nil, nil, fmt.Errorf("failed to generate encryption keys: %s", err)
+	}
+	return buf[0:sha256.Size], buf[sha256.Size : 2*sha256.Size], buf[2*sha256.Size : 80], nil
+}
+
+func (c DefaultCrypto) authCiphertext(authKey, ciphertext, associatedData []byte) []byte {
 	h := hmac.New(sha256.New, authKey)
 	// TODO: Handle error?
 	h.Write(associatedData)
 	// TODO: Handle error?
 	h.Write(ciphertext)
-	return h.Sum(ciphertext), nil
-}
-
-func (c DefaultCrypto) Decrypt(mk, ciphertext, associatedData []byte) (plaintext []byte) {
-	// TODO: Implement.
-
-	return nil
+	return h.Sum(ciphertext)
 }
