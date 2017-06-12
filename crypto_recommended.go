@@ -77,7 +77,7 @@ func (c DefaultCrypto) KdfCK(ck [32]byte) (chainKey [32]byte, msgKey [32]byte) {
 	return chainKey, msgKey
 }
 
-// Encrypt uses a slightly different approach over what is stated in the algorithm specification:
+// Encrypt uses a slightly different approach than in the algorithm specification:
 // it uses AES-256-CTR instead of AES-256-CBC for security, ciphertext length and implementation
 // complexity considerations.
 func (c DefaultCrypto) Encrypt(mk [32]byte, plaintext, associatedData []byte) []byte {
@@ -105,16 +105,13 @@ func (c DefaultCrypto) Decrypt(mk [32]byte, authCiphertext, associatedData []byt
 
 	// Check the signature.
 	encKey, authKey, _ := c.deriveEncKeys(mk)
-	if s := c.authCiphertext(authKey[:], ciphertext, associatedData)[l-aes.BlockSize:]; !bytes.Equal(s, signature) {
+	if s := c.authCiphertext(authKey[:], ciphertext, associatedData)[l-aes.BlockSize-sha256.Size:]; !bytes.Equal(s, signature) {
 		return nil, fmt.Errorf("invalid signature")
 	}
 
 	// Decrypt.
-
-	// No error will occur here as encKey is guaranteed to be 32 bytes.
-	block, _ := aes.NewCipher(encKey[:])
-
 	var (
+		block, _  = aes.NewCipher(encKey[:]) // No error will occur here as encKey is guaranteed to be 32 bytes.
 		stream    = cipher.NewCTR(block, iv)
 		plaintext = make([]byte, len(ciphertext))
 	)

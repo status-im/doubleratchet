@@ -101,3 +101,75 @@ func TestDefaultCrypto_KdfCK(t *testing.T) {
 	require.Len(t, mk, 32)
 	require.NotEqual(t, mk, newCK)
 }
+
+func TestDefaultCrypto_deriveEncKeys(t *testing.T) {
+	// Arrange.
+	c := DefaultCrypto{}
+
+	// Act.
+	encKey, authKey, iv := c.deriveEncKeys([32]byte{0xeb, 0x8, 0x10, 0x7c, 0x33, 0x54, 0x0, 0x20, 0xe9, 0x4f, 0x6c, 0x84, 0xe4, 0x39, 0x50, 0x5a, 0x2f, 0x60, 0xbe, 0x81, 0xa, 0x78, 0x8b, 0xeb, 0x1e, 0x2c, 0x9, 0x8d, 0x4b, 0x4d, 0xc1, 0x40})
+
+	// Assert.
+	require.Len(t, encKey, 32)
+	require.Len(t, authKey, 32)
+	require.Len(t, iv, 16)
+	require.NotEqual(t, [32]byte{}, encKey)
+	require.NotEqual(t, [32]byte{}, authKey)
+	require.NotContains(t, encKey, iv)
+	require.NotContains(t, authKey, iv)
+	require.NotEqual(t, encKey, authKey)
+}
+
+func TestDefaultCrypto_authCiphertext(t *testing.T) {
+	// Arrange.
+	var (
+		c          = DefaultCrypto{}
+		ciphertext = []byte{13, 250, 114, 78}
+	)
+
+	// Act.
+	authCiphertext := c.authCiphertext(
+		[]byte{0xeb, 0x8, 0x10, 0x7c, 0x33, 0x54, 0x0, 0x20, 0xe9, 0x4f, 0x6c, 0x84, 0xe4, 0x39, 0x50, 0x5a, 0x2f, 0x60, 0xbe, 0x81, 0xa, 0x78, 0x8b, 0xeb, 0x1e, 0x2c, 0x9, 0x8d, 0x4b, 0x4d, 0xc1, 0x40},
+		ciphertext,
+		nil,
+	)
+
+	// Assert.
+	require.Len(t, authCiphertext, 32+len(ciphertext))
+	require.Equal(t, ciphertext, authCiphertext[:len(ciphertext)])
+}
+
+func TestDefaultCrypto_EncryptDecrypt(t *testing.T) {
+	// Arrange.
+	var (
+		c   = DefaultCrypto{}
+		msg = []byte("1337")
+		mk  = [32]byte{0xeb, 0x8, 0x10, 0x7c, 0x33, 0x54, 0x0, 0x20, 0xe9, 0x4f, 0x6c, 0x84, 0xe4, 0x39, 0x50, 0x5a, 0x2f, 0x60, 0xbe, 0x81, 0xa, 0x78, 0x8b, 0xeb, 0x1e, 0x2c, 0x9, 0x8d, 0x4b, 0x4d, 0xc1, 0x40}
+	)
+
+	t.Run("no associated data", func(t *testing.T) {
+		// Act.
+		var (
+			ciphertext     = c.Encrypt(mk, msg, nil)
+			plaintext, err = c.Decrypt(mk, ciphertext, nil)
+		)
+
+		// Assert.
+		require.Nil(t, err)
+		require.Len(t, ciphertext, 32+16+len(msg)) // signature + iv + plaintext length
+		require.Equal(t, msg, plaintext)
+	})
+
+	t.Run("associated data", func(t *testing.T) {
+		// Act.
+		var (
+			ciphertext     = c.Encrypt(mk, msg, []byte("any secret"))
+			plaintext, err = c.Decrypt(mk, ciphertext, []byte("any secret"))
+		)
+
+		// Assert.
+		require.Nil(t, err)
+		require.Len(t, ciphertext, 32+16+len(msg)) // signature + iv + plaintext length
+		require.Equal(t, msg, plaintext)
+	})
+}
