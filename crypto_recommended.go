@@ -43,9 +43,7 @@ func (c DefaultCrypto) DH(dhPair DHPair, dhPub [32]byte) [32]byte {
 }
 
 func (c DefaultCrypto) KdfRK(rk, dhOut [32]byte) (rootKey [32]byte, chainKey [32]byte) {
-	// TODO: Use sha512? Think about how to switch the implementation later if not.
 	var (
-		// TODO: Check if HKDF is set up correctly.
 		r   = hkdf.New(sha256.New, dhOut[:], rk[:], []byte("rsZUpEuXUqqwXBvSy3EcievAh4cMj6QL"))
 		buf = make([]byte, 64)
 	)
@@ -54,7 +52,7 @@ func (c DefaultCrypto) KdfRK(rk, dhOut [32]byte) (rootKey [32]byte, chainKey [32
 	_, _ = io.ReadFull(r, buf)
 
 	copy(rootKey[:], buf[:32])
-	copy(rootKey[:], buf[32:])
+	copy(chainKey[:], buf[32:])
 	return
 }
 
