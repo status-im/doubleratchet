@@ -86,9 +86,8 @@ func (c DefaultCrypto) Encrypt(mk, plaintext, associatedData []byte) ([]byte, er
 	}
 
 	ciphertext := make([]byte, aes.BlockSize+len(plaintext))
-	for i := 0; i < len(iv); i++ {
-		ciphertext[i] = iv[i]
-	}
+	copy(ciphertext[:len(iv)], iv)
+
 	block, err := aes.NewCipher(encKey)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create aes block cipher: %s", err)
