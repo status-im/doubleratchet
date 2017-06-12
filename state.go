@@ -128,8 +128,8 @@ func (s *State) RatchetDecrypt(m Message, ad AssociatedData) ([]byte, error) {
 	var mk []byte
 	s.CKr, mk = s.Crypto.KdfCK(s.CKr)
 	s.Nr++
-	// TODO: Decrypt will probably return an error.
-	return s.Crypto.Decrypt(mk, m.Ciphertext, m.Header.EncodeWithAD(ad)), nil
+	// TODO: Discard the message in case of error and rollback the skipped key.
+	return s.Crypto.Decrypt(mk, m.Ciphertext, m.Header.EncodeWithAD(ad))
 }
 
 // trySkippedMessageKeys tries to decrypt the message with a skipped message key.
@@ -137,8 +137,8 @@ func (s *State) trySkippedMessageKeys(m Message, ad AssociatedData) ([]byte, err
 	skippedKey := s.skippedKey(m.Header.DH, m.Header.N)
 	if mk, ok := s.MkSkipped[skippedKey]; ok {
 		delete(s.MkSkipped, skippedKey)
-		// TODO: Decrypt will probably also return an error here. How to handle it?
-		return s.Crypto.Decrypt(mk, m.Ciphertext, m.Header.EncodeWithAD(ad)), nil
+		// TODO: Discard the message in case of error and rollback the skipped key.
+		return s.Crypto.Decrypt(mk, m.Ciphertext, m.Header.EncodeWithAD(ad))
 	}
 	return nil, nil
 }

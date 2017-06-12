@@ -26,7 +26,7 @@ type Crypto interface {
 	Encrypt(mk, plaintext, associatedData []byte) (authCiphertext []byte, err error)
 
 	// Decrypt returns the AEAD decryption of ciphertext with message key mk.
-	Decrypt(mk, ciphertext, associatedData []byte) (plaintext []byte)
+	Decrypt(mk, ciphertext, associatedData []byte) (plaintext []byte, err error)
 }
 
 //HEADER(dh_pair, pn, n):
