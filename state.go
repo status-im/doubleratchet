@@ -3,9 +3,9 @@ package doubleratchet
 // TODO: For Bob to be able to send messages right after he initiated a session it's required
 // to populate his sending chain with the shared secret. Should it be the same secret both
 // parties agreed upon before the communication or should it be a separate key?
-// TODO: When the new public key should be reset?
 // TODO: Max chain length? What happens when N in message header closes in on overflowing? Perform Ratchet step?
 
+// TODO
 // Any Double Ratchet message encrypted using Alice's initial sending chain can serve as
 // an "initial ciphertext" for X3DH. To deal with the possibility of lost or out-of-order messages,
 // a recommended pattern is for Alice to repeatedly send the same X3DH initial message prepended
@@ -15,16 +15,20 @@ import (
 	"fmt"
 )
 
-const (
-	// Maximum number of message keys that can be skipped in a single chain.
-	MaxSkip = 1000
-)
+// State of the party involved in The Double Ratchet Algorithm.
+type State interface {
+	// RatchetEncrypt performs a symmetric-key ratchet step, then encrypts the message with
+	// the resulting message key.
+	RatchetEncrypt(plaintext []byte, ad AssociatedData) Message
 
-// State is a state of the party involved in The Double Ratchet message exchange.
+	// RatchetDecrypt is called to decrypt messages.
+	RatchetDecrypt(m Message, ad AssociatedData) ([]byte, error)
+}
+
 // Operations on this object are NOT THREAD-SAFE, make sure they're done in sequence.
 // TODO: Store skipper separately.
 // TODO: Store state separately?
-type State struct {
+type state struct {
 	// 32-byte root key. Both parties MUST agree on this key before starting a ratchet session.
 	RK [32]byte
 
@@ -54,16 +58,16 @@ type State struct {
 	Crypto Crypto
 }
 
-// New creates State with the shared key and public key of the other party initiating the session.
+// New creates state with the shared key and public key of the other party initiating the session.
 // If this party initiates the session, pubKey must be nil.
-func New(sharedKey [32]byte, opts ...Option) (*State, error) {
-	if len(sharedKey) == 0 {
-		return nil, fmt.Errorf("sharedKey must be set")
+func New(sharedKey [32]byte, opts ...Option) (State, error) {
+	if sharedKey == [32]byte{} {
+		return nil, fmt.Errorf("sharedKey must be non-zero")
 	}
-	s := &State{
+	s := &state{
 		RK:        sharedKey,
 		MkSkipped: make(map[string][32]byte),
-		MaxSkip:   MaxSkip,
+		MaxSkip:   1000,
 		Crypto:    DefaultCrypto{},
 	}
 
@@ -83,11 +87,11 @@ func New(sharedKey [32]byte, opts ...Option) (*State, error) {
 }
 
 // Option is a constructor option.
-type Option func(*State) error
+type Option func(*state) error
 
 // WithRemoteKey specifies the remote public key for the sending chain.
 func WithRemoteKey(dhRemotePubKey [32]byte) Option {
-	return func(s *State) error {
+	return func(s *state) error {
 		s.DHr = dhRemotePubKey
 		s.RK, s.CKs = s.Crypto.KdfRK(s.RK, s.Crypto.DH(s.DHs, s.DHr))
 		return nil
@@ -96,7 +100,7 @@ func WithRemoteKey(dhRemotePubKey [32]byte) Option {
 
 // WithMaxSkip specifies the maximum number of skipped message in a single chain.
 func WithMaxSkip(maxSkip int) Option {
-	return func(s *State) error {
+	return func(s *state) error {
 		if maxSkip < 0 {
 			return fmt.Errorf("maxSkip must be non-negative")
 		}
@@ -107,7 +111,7 @@ func WithMaxSkip(maxSkip int) Option {
 
 // RatchetEncrypt performs a symmetric-key ratchet step, then encrypts the message with
 // the resulting message key.
-func (s *State) RatchetEncrypt(plaintext []byte, ad AssociatedData) Message {
+func (s *state) RatchetEncrypt(plaintext []byte, ad AssociatedData) Message {
 	var mk [32]byte
 	s.CKs, mk = s.Crypto.KdfCK(s.CKs)
 	h := MessageHeader{
@@ -124,7 +128,7 @@ func (s *State) RatchetEncrypt(plaintext []byte, ad AssociatedData) Message {
 }
 
 // RatchetDecrypt is called to decrypt messages.
-func (s *State) RatchetDecrypt(m Message, ad AssociatedData) ([]byte, error) {
+func (s *state) RatchetDecrypt(m Message, ad AssociatedData) ([]byte, error) {
 	plaintext, err := s.trySkippedMessageKeys(m, ad)
 	if err != nil {
 		return nil, fmt.Errorf("can't decrypt skipped message: %s", err)
@@ -148,7 +152,7 @@ func (s *State) RatchetDecrypt(m Message, ad AssociatedData) ([]byte, error) {
 }
 
 // trySkippedMessageKeys tries to decrypt the message with a skipped message key.
-func (s *State) trySkippedMessageKeys(m Message, ad AssociatedData) ([]byte, error) {
+func (s *state) trySkippedMessageKeys(m Message, ad AssociatedData) ([]byte, error) {
 	skippedKey := s.skippedKey(m.Header.DH[:], m.Header.N)
 	if mk, ok := s.MkSkipped[skippedKey]; ok {
 		delete(s.MkSkipped, skippedKey)
@@ -159,14 +163,14 @@ func (s *State) trySkippedMessageKeys(m Message, ad AssociatedData) ([]byte, err
 }
 
 // skippedKey forms a key for a skipped message.
-func (s *State) skippedKey(dh []byte, n uint) string {
+func (s *state) skippedKey(dh []byte, n uint) string {
 	// TODO: More compact representation.
 	nByte := []byte(fmt.Sprintf("_%d", n))
 	return string(append(dh, nByte...))
 }
 
 // skipMessageKeys skips message keys in the current receiving chain.
-func (s *State) skipMessageKeys(until uint) {
+func (s *state) skipMessageKeys(until uint) {
 	// TODO: What is it?..
 	if s.Nr+s.MaxSkip < until {
 		// TODO: Return error.
@@ -185,7 +189,7 @@ func (s *State) skipMessageKeys(until uint) {
 }
 
 // dhRatchet performs a single ratchet step.
-func (s *State) dhRatchet(mh MessageHeader) error {
+func (s *state) dhRatchet(mh MessageHeader) error {
 	// TODO: Discard state changes in case of error.
 	var err error
 
