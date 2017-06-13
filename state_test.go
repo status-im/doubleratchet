@@ -1,6 +1,7 @@
 package doubleratchet
 
 import (
+	"fmt"
 	"github.com/stretchr/testify/require"
 	"testing"
 )
@@ -105,7 +106,7 @@ func TestState_RatchetEncryptDecrypt_Basic(t *testing.T) {
 	require.NotEmpty(t, m.Ciphertext)
 }
 
-func TestState_RatchetDecrypt_BasicCommunication(t *testing.T) {
+func TestState_RatchetDecrypt_BasicCommunicationAliceSends(t *testing.T) {
 	// Arrange.
 	var (
 		bobI, _ = New(sk)
@@ -113,18 +114,46 @@ func TestState_RatchetDecrypt_BasicCommunication(t *testing.T) {
 
 		aliceI, _ = New(sk, WithRemoteKey(bob.DHs.PublicKey()))
 		alice     = aliceI.(*state)
-
-		pt = []byte("1337")
 	)
 
-	// Act.
+	for i := 0; i < 10; i++ {
+		pt := fmt.Sprintf("msg%d", i)
+		t.Run(pt, func(t *testing.T) {
+			// Act.
+			var (
+				m              = alice.RatchetEncrypt([]byte(pt), nil)
+				decrypted, err = bob.RatchetDecrypt(m, nil)
+			)
+
+			// Assert.
+			require.Nil(t, err)
+			require.Equal(t, []byte(pt), decrypted)
+		})
+	}
+}
+
+func TestState_RatchetDecrypt_BasicCommunicationBobSends(t *testing.T) {
+	// Arrange.
 	var (
-		m              = alice.RatchetEncrypt(pt, nil)
-		decrypted, err = bob.RatchetDecrypt(m, nil)
+		bobI, _ = New(sk)
+		bob     = bobI.(*state)
+
+		aliceI, _ = New(sk, WithRemoteKey(bob.DHs.PublicKey()))
+		alice     = aliceI.(*state)
 	)
 
-	// Assert.
-	require.Nil(t, err)
+	for i := 0; i < 10; i++ {
+		pt := fmt.Sprintf("msg%d", i)
+		t.Run(pt, func(t *testing.T) {
+			// Act.
+			var (
+				m              = bob.RatchetEncrypt([]byte(pt), nil)
+				decrypted, err = alice.RatchetDecrypt(m, nil)
+			)
 
-	require.Equal(t, pt, decrypted)
+			// Assert.
+			require.Nil(t, err)
+			require.Equal(t, []byte(pt), decrypted)
+		})
+	}
 }
