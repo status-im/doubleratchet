@@ -26,6 +26,7 @@ func TestNew_Basic(t *testing.T) {
 
 	// Assert.
 	require.Nil(t, err)
+
 	require.Equal(t, sk, s.RK)
 	require.Equal(t, [32]byte{}, s.DHr)
 	require.NotEqual(t, [32]byte{}, s.DHs.PrivateKey())
@@ -49,6 +50,7 @@ func TestNew_WithMaxSkip_OK(t *testing.T) {
 
 	// Assert.
 	require.Nil(t, err)
+
 	require.EqualValues(t, 100, s.MaxSkip)
 }
 
@@ -71,8 +73,34 @@ func TestNew_WithRemoteKey(t *testing.T) {
 
 	// Assert.
 	require.Nil(t, err)
+
 	require.Equal(t, bobPair.PublicKey(), s.DHr)
 	require.NotEqual(t, [32]byte{}, s.RK)
 	require.NotEqual(t, sk, s.RK)
 	require.NotEqual(t, [32]byte{}, s.CKs)
+}
+
+func TestState_RatchetEncrypt_Basic(t *testing.T) {
+	// Arrange.
+	var (
+		si, err = New(sk, WithRemoteKey(bobPair.PublicKey()))
+		s       = si.(*state)
+		oldCKs  = s.CKs
+	)
+
+	// Act.
+	m := si.RatchetEncrypt([]byte("1337"), nil)
+
+	// Assert.
+	require.Nil(t, err)
+
+	require.NotEqual(t, oldCKs, s.CKs)
+	require.EqualValues(t, 1, s.Ns)
+
+	require.Equal(t, MessageHeader{
+		DH: s.DHs.PublicKey(),
+		N:  0,
+		PN: 0,
+	}, m.Header)
+	require.NotEmpty(t, m.Ciphertext)
 }
