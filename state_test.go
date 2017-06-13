@@ -51,7 +51,6 @@ func TestNew_WithMaxSkip_OK(t *testing.T) {
 
 	// Assert.
 	require.Nil(t, err)
-
 	require.EqualValues(t, 100, s.MaxSkip)
 }
 
@@ -74,7 +73,6 @@ func TestNew_WithRemoteKey(t *testing.T) {
 
 	// Assert.
 	require.Nil(t, err)
-
 	require.Equal(t, bobPair.PublicKey(), s.DHr)
 	require.NotEqual(t, [32]byte{}, s.RK)
 	require.NotEqual(t, sk, s.RK)
@@ -94,10 +92,8 @@ func TestState_RatchetEncryptDecrypt_Basic(t *testing.T) {
 
 	// Assert.
 	require.Nil(t, err)
-
 	require.NotEqual(t, oldCKs, s.CKs)
 	require.EqualValues(t, 1, s.Ns)
-
 	require.Equal(t, MessageHeader{
 		DH: s.DHs.PublicKey(),
 		N:  0,
@@ -106,7 +102,7 @@ func TestState_RatchetEncryptDecrypt_Basic(t *testing.T) {
 	require.NotEmpty(t, m.Ciphertext)
 }
 
-func TestState_RatchetDecrypt_BasicCommunicationAliceSends(t *testing.T) {
+func TestState_RatchetDecrypt_CommunicationAliceSends(t *testing.T) {
 	// Arrange.
 	var (
 		bobI, _ = New(sk)
@@ -121,8 +117,8 @@ func TestState_RatchetDecrypt_BasicCommunicationAliceSends(t *testing.T) {
 		t.Run(pt, func(t *testing.T) {
 			// Act.
 			var (
-				m              = alice.RatchetEncrypt([]byte(pt), nil)
-				decrypted, err = bob.RatchetDecrypt(m, nil)
+				m              = alice.RatchetEncrypt([]byte(pt), []byte("alice associated data"))
+				decrypted, err = bob.RatchetDecrypt(m, []byte("alice associated data"))
 			)
 
 			// Assert.
@@ -132,7 +128,7 @@ func TestState_RatchetDecrypt_BasicCommunicationAliceSends(t *testing.T) {
 	}
 }
 
-func TestState_RatchetDecrypt_BasicCommunicationBobSends(t *testing.T) {
+func TestState_RatchetDecrypt_CommunicationBobSends(t *testing.T) {
 	// Arrange.
 	var (
 		bobI, _ = New(sk)
@@ -147,13 +143,44 @@ func TestState_RatchetDecrypt_BasicCommunicationBobSends(t *testing.T) {
 		t.Run(pt, func(t *testing.T) {
 			// Act.
 			var (
-				m              = bob.RatchetEncrypt([]byte(pt), nil)
-				decrypted, err = alice.RatchetDecrypt(m, nil)
+				m              = bob.RatchetEncrypt([]byte(pt), []byte("bob associated data"))
+				decrypted, err = alice.RatchetDecrypt(m, []byte("bob associated data"))
 			)
 
 			// Assert.
 			require.Nil(t, err)
 			require.Equal(t, []byte(pt), decrypted)
+		})
+	}
+}
+
+func TestState_RatchetDecrypt_CommunicationPingPong(t *testing.T) {
+	// Arrange.
+	var (
+		bobI, _ = New(sk)
+		bob     = bobI.(*state)
+
+		aliceI, _ = New(sk, WithRemoteKey(bob.DHs.PublicKey()))
+		alice     = aliceI.(*state)
+	)
+
+	for i := 0; i < 10; i++ {
+		pt := fmt.Sprintf("msg%d", i)
+		t.Run(pt, func(t *testing.T) {
+			// Act.
+			var (
+				mAlice   = alice.RatchetEncrypt([]byte(pt+"alice"), []byte("alice associated data"))
+				d1, err1 = bob.RatchetDecrypt(mAlice, []byte("alice associated data"))
+
+				mBob     = alice.RatchetEncrypt([]byte(pt+"bob"), []byte("bob associated data"))
+				d2, err2 = bob.RatchetDecrypt(mBob, []byte("bob associated data"))
+			)
+
+			// Assert.
+			require.Nil(t, err1)
+			require.Nil(t, err2)
+			require.Equal(t, []byte(pt+"alice"), d1)
+			require.Equal(t, []byte(pt+"bob"), d2)
 		})
 	}
 }
