@@ -1,7 +1,16 @@
 package doubleratchet
 
-// TODO: Skipped messages deletion?
+// TODO: Skipped messages deletion? Deletion could be triggered by a timer, or by counting
+// a number of events (messages received, DH ratchet steps, etc.). It's better to use some
+// deterministic measure.
+
 // FIXME: Correct MaxSkip handling for message numbers like: 1, 3, 5
+
+// TODO: During each DH ratchet step a new ratchet key pair and sending chain are generated.
+// As the sending chain is not needed right away, these steps could be deferred until the party
+// is about to send a new message.
+
+// TODO: Think if to truncate an authentication tag to 128 bits.
 
 import (
 	"encoding/hex"
