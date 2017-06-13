@@ -1,16 +1,5 @@
 package doubleratchet
 
-// TODO: For Bob to be able to send messages right after he initiated a session it's required
-// to populate his sending chain with the shared secret. Should it be the same secret both
-// parties agreed upon before the communication or should it be a separate key?
-// TODO: Max chain length? What happens when N in message header closes in on overflowing? Perform Ratchet step?
-
-// TODO
-// Any Double Ratchet message encrypted using Alice's initial sending chain can serve as
-// an "initial ciphertext" for X3DH. To deal with the possibility of lost or out-of-order messages,
-// a recommended pattern is for Alice to repeatedly send the same X3DH initial message prepended
-// to all of her Double Ratchet messages until she receives Bob's first Double Ratchet response message.
-
 import (
 	"fmt"
 )
@@ -66,6 +55,8 @@ func New(sharedKey [32]byte, opts ...Option) (State, error) {
 	}
 	s := &state{
 		RK:        sharedKey,
+		CKs:       sharedKey, // Populate CKs and CKr with sharedKey as per specification so that both
+		CKr:       sharedKey, // parties could both send and receive messages from the very beginning.
 		MkSkipped: make(map[string][32]byte),
 		MaxSkip:   1000,
 		Crypto:    DefaultCrypto{},
@@ -129,18 +120,17 @@ func (s *state) RatchetEncrypt(plaintext []byte, ad AssociatedData) Message {
 
 // RatchetDecrypt is called to decrypt messages.
 func (s *state) RatchetDecrypt(m Message, ad AssociatedData) ([]byte, error) {
+	// All changes must be applied on a different state object, so that this state won't be modified nor left in a dirty state.
+	var sc state = *s
+
 	// Is the messages one of the skipped?
-	plaintext, err := s.trySkippedMessageKeys(m, ad)
+	plaintext, err := sc.trySkippedMessageKeys(m, ad)
 	if err != nil {
 		return nil, fmt.Errorf("can't decrypt skipped message: %s", err)
 	}
 	if plaintext != nil {
 		return plaintext, nil
 	}
-
-	// All changes must be applied on a different state object,
-	// so that this state won't be left in a dirty state.
-	sc := *s
 
 	// Is there a new ratchet key?
 	if m.Header.DH != sc.DHr {
@@ -196,21 +186,17 @@ func (s *state) skipMessageKeys(until uint) error {
 	if s.Nr+s.MaxSkip < until {
 		return fmt.Errorf("too many messages: %d", until-s.Nr)
 	}
-	//TODO: Fill s.CKr in the very beginning.
-	//if s.CKr != nil {
-	//for s.Nr < until {
-	//	var mk [32]byte
-	//	s.CKr, mk = s.Crypto.KdfCK(s.CKr)
-	//	s.MkSkipped[s.skippedKey(s.DHr[:], s.Nr)] = mk
-	//	s.Nr += 1
-	//}
-	//}
+	for s.Nr < until {
+		var mk [32]byte
+		s.CKr, mk = s.Crypto.KdfCK(s.CKr)
+		s.MkSkipped[s.skippedKey(s.DHr[:], s.Nr)] = mk
+		s.Nr++
+	}
 	return nil
 }
 
 // dhRatchet performs a single ratchet step.
 func (s *state) dhRatchet(mh MessageHeader) error {
-	// TODO: Discard state changes in case of error.
 	var err error
 
 	s.PN = s.Ns
