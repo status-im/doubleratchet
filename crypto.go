@@ -30,3 +30,6 @@ type DHPair interface {
 	PrivateKey() [32]byte
 	PublicKey() [32]byte
 }
+
+// TODO:
+// type Key [32]byte

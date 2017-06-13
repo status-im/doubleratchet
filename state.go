@@ -4,8 +4,6 @@ package doubleratchet
 // a number of events (messages received, DH ratchet steps, etc.). It's better to use some
 // deterministic measure.
 
-// FIXME: Correct MaxSkip handling for message numbers like: 1, 3, 5
-
 // TODO: During each DH ratchet step a new ratchet key pair and sending chain are generated.
 // As the sending chain is not needed right away, these steps could be deferred until the party
 // is about to send a new message.
@@ -13,7 +11,6 @@ package doubleratchet
 // TODO: Think if to truncate an authentication tag to 128 bits.
 
 import (
-	"encoding/hex"
 	"fmt"
 )
 
@@ -50,7 +47,7 @@ type state struct {
 	PN uint
 
 	// Dictionary of skipped-over message keys, indexed by ratchet public key and message number.
-	MkSkipped map[string][32]byte
+	MkSkipped KeysStorage
 
 	// MaxSkip should be set high enough to tolerate routine lost or delayed messages,
 	// but low enough that a malicious sender can't trigger excessive recipient computation.
@@ -70,7 +67,7 @@ func New(sharedKey [32]byte, opts ...Option) (State, error) {
 		RK:        sharedKey,
 		CKs:       sharedKey, // Populate CKs and CKr with sharedKey as per specification so that both
 		CKr:       sharedKey, // parties could both send and receive messages from the very beginning.
-		MkSkipped: make(map[string][32]byte),
+		MkSkipped: &KeysStorageInMemory{},
 		MaxSkip:   1000,
 		Crypto:    DefaultCrypto{},
 	}
@@ -112,6 +109,9 @@ func WithMaxSkip(n int) Option {
 		return nil
 	}
 }
+
+// TODO: WithKeysStorage.
+// TODO: WithCrypto.
 
 // RatchetEncrypt performs a symmetric-key ratchet step, then encrypts the message with
 // the resulting message key.
@@ -174,33 +174,27 @@ func (s *state) RatchetDecrypt(m Message, ad AssociatedData) ([]byte, error) {
 
 // trySkippedMessageKeys tries to decrypt the message with a skipped message key.
 func (s *state) trySkippedMessageKeys(m Message, ad AssociatedData) ([]byte, error) {
-	k := s.skippedKey(m.Header.DH[:], m.Header.N)
-	if mk, ok := s.MkSkipped[k]; ok {
+	if mk, ok := s.MkSkipped.Get(m.Header.DH, m.Header.N); ok {
 		plaintext, err := s.Crypto.Decrypt(mk, m.Ciphertext, m.Header.EncodeWithAD(ad))
 		if err != nil {
 			return nil, fmt.Errorf("can't decrypt message: %s", err)
 		}
-		delete(s.MkSkipped, k)
+		s.MkSkipped.Delete(m.Header.DH, m.Header.N)
 		return plaintext, nil
 	}
 	return nil, nil
 }
 
-// skippedKey forms a key for a skipped message.
-func (s *state) skippedKey(dh []byte, n uint) string {
-	return fmt.Sprintf("%s%d", hex.EncodeToString(dh), n)
-}
-
 // skipMessageKeys skips message keys in the current receiving chain.
 func (s *state) skipMessageKeys(until uint) error {
-	// until exceeds the number of messages in the receiving chain for no more than s.MaxSkip
-	if s.Nr+s.MaxSkip < until {
-		return fmt.Errorf("too many messages: %d", until-s.Nr)
+	nSkipped := s.MkSkipped.Count(s.DHr)
+	if until-s.Nr+nSkipped > s.MaxSkip {
+		return fmt.Errorf("too many messages")
 	}
 	for s.Nr < until {
 		var mk [32]byte
 		s.CKr, mk = s.Crypto.KdfCK(s.CKr)
-		s.MkSkipped[s.skippedKey(s.DHr[:], s.Nr)] = mk
+		s.MkSkipped.Put(s.DHr, s.Nr, mk)
 		s.Nr++
 	}
 	return nil
