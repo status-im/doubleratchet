@@ -8,8 +8,6 @@ package doubleratchet
 // As the sending chain is not needed right away, these steps could be deferred until the party
 // is about to send a new message.
 
-// TODO: Think if to truncate an authentication tag to 128 bits.
-
 import (
 	"fmt"
 )
@@ -25,8 +23,6 @@ type State interface {
 }
 
 // Operations on this object are NOT THREAD-SAFE, make sure they're done in sequence.
-// TODO: Store skipper separately.
-// TODO: Store state separately?
 type state struct {
 	// 32-byte root key. Both parties MUST agree on this key before starting a ratchet session.
 	RK [32]byte
