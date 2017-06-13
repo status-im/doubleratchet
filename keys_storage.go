@@ -22,7 +22,7 @@ type KeysStorageInMemory struct {
 
 func (s *KeysStorageInMemory) Get(pubKey [32]byte, msgNum uint) ([32]byte, bool) {
 	if s.keys == nil {
-		s.keys = make(map[[32]byte]map[uint][32]byte)
+		return [32]byte{}, false
 	}
 	msgs, ok := s.keys[pubKey]
 	if !ok {
