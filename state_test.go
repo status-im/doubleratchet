@@ -80,7 +80,7 @@ func TestNew_WithRemoteKey(t *testing.T) {
 	require.NotEqual(t, [32]byte{}, s.CKs)
 }
 
-func TestState_RatchetEncrypt_Basic(t *testing.T) {
+func TestState_RatchetEncryptDecrypt_Basic(t *testing.T) {
 	// Arrange.
 	var (
 		si, err = New(sk, WithRemoteKey(bobPair.PublicKey()))
@@ -103,4 +103,28 @@ func TestState_RatchetEncrypt_Basic(t *testing.T) {
 		PN: 0,
 	}, m.Header)
 	require.NotEmpty(t, m.Ciphertext)
+}
+
+func TestState_RatchetDecrypt_BasicCommunication(t *testing.T) {
+	// Arrange.
+	var (
+		bobI, _ = New(sk)
+		bob     = bobI.(*state)
+
+		aliceI, _ = New(sk, WithRemoteKey(bob.DHs.PublicKey()))
+		alice     = aliceI.(*state)
+
+		pt = []byte("1337")
+	)
+
+	// Act.
+	var (
+		m              = alice.RatchetEncrypt(pt, nil)
+		decrypted, err = bob.RatchetDecrypt(m, nil)
+	)
+
+	// Assert.
+	require.Nil(t, err)
+
+	require.Equal(t, pt, decrypted)
 }

@@ -138,29 +138,33 @@ func (s *state) RatchetDecrypt(m Message, ad AssociatedData) ([]byte, error) {
 		return plaintext, nil
 	}
 
+	// All changes must be applied on a different state object,
+	// so that this state won't be left in a dirty state.
+	sc := *s
+
 	// Is there a new ratchet key?
-	if m.Header.DH != s.DHr {
-		if err := s.skipMessageKeys(m.Header.PN); err != nil {
+	if m.Header.DH != sc.DHr {
+		if err := sc.skipMessageKeys(m.Header.PN); err != nil {
 			return nil, fmt.Errorf("failed to skip previous chain message keys: %s", err)
 		}
-		if err := s.dhRatchet(m.Header); err != nil {
-			// TODO: Rollback state changes.
+		if err := sc.dhRatchet(m.Header); err != nil {
 			return nil, fmt.Errorf("failed to perform ratchet step: %s", err)
 		}
 	}
 
 	// After all, apply changes on the current chain.
-	if err := s.skipMessageKeys(m.Header.N); err != nil {
+	if err := sc.skipMessageKeys(m.Header.N); err != nil {
 		return nil, fmt.Errorf("failed to skip current chain message keys: %s", err)
 	}
 	var mk [32]byte
-	s.CKr, mk = s.Crypto.KdfCK(s.CKr)
-	s.Nr++
-	plaintext, err = s.Crypto.Decrypt(mk, m.Ciphertext, m.Header.EncodeWithAD(ad))
+	sc.CKr, mk = sc.Crypto.KdfCK(sc.CKr)
+	sc.Nr++
+	plaintext, err = sc.Crypto.Decrypt(mk, m.Ciphertext, m.Header.EncodeWithAD(ad))
 	if err != nil {
-		// TODO: Rollback state changes.
 		return nil, fmt.Errorf("failed to decrypt: %s", err)
 	}
+
+	*s = sc
 
 	return plaintext, nil
 }
