@@ -29,11 +29,11 @@ func TestNew_Basic(t *testing.T) {
 	require.Nil(t, err)
 
 	require.Equal(t, sk, s.RK)
+	require.Equal(t, sk, s.CKs)
+	require.Equal(t, sk, s.CKr)
 	require.Equal(t, [32]byte{}, s.DHr)
 	require.NotEqual(t, [32]byte{}, s.DHs.PrivateKey())
 	require.NotEqual(t, [32]byte{}, s.DHs.PublicKey())
-	require.Equal(t, [32]byte{}, s.CKs)
-	require.Equal(t, [32]byte{}, s.CKr)
 	require.EqualValues(t, 0, s.Ns)
 	require.EqualValues(t, 0, s.Nr)
 	require.EqualValues(t, 0, s.PN)
