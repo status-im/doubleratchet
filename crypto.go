@@ -25,16 +25,7 @@ type Crypto interface {
 	Decrypt(mk [32]byte, ciphertext, associatedData []byte) (plaintext []byte, err error)
 }
 
-//HEADER(dh_pair, pn, n):
-// Creates a new message header containing the DH ratchet public key from the key pair in dh_pair,
-// the previous chain length pn, and the message number n. The returned header object contains
-// ratchet public key dh and integers pn and n.
-
-//CONCAT(ad, header): Encodes a message header into a parseable byte sequence, prepends the
-// ad byte sequence, and returns the result. If ad is not guaranteed to be a parseable
-// byte sequence, a length value should be prepended to the output to ensure that the output
-// is parseable as a unique pair (ad, header).
-
+// DHPair is a general interface for DH pairs representation.
 type DHPair interface {
 	PrivateKey() [32]byte
 	PublicKey() [32]byte

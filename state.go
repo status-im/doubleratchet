@@ -1,6 +1,7 @@
 package doubleratchet
 
 import (
+	"encoding/hex"
 	"fmt"
 )
 
@@ -126,7 +127,7 @@ func (s *state) RatchetDecrypt(m Message, ad AssociatedData) ([]byte, error) {
 	// Is the messages one of the skipped?
 	plaintext, err := sc.trySkippedMessageKeys(m, ad)
 	if err != nil {
-		return nil, fmt.Errorf("can't decrypt skipped message: %s", err)
+		return nil, fmt.Errorf("can't try skipped message: %s", err)
 	}
 	if plaintext != nil {
 		return plaintext, nil
@@ -165,7 +166,7 @@ func (s *state) trySkippedMessageKeys(m Message, ad AssociatedData) ([]byte, err
 	if mk, ok := s.MkSkipped[k]; ok {
 		plaintext, err := s.Crypto.Decrypt(mk, m.Ciphertext, m.Header.EncodeWithAD(ad))
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("can't decrypt message: %s", err)
 		}
 		delete(s.MkSkipped, k)
 		return plaintext, nil
@@ -175,9 +176,7 @@ func (s *state) trySkippedMessageKeys(m Message, ad AssociatedData) ([]byte, err
 
 // skippedKey forms a key for a skipped message.
 func (s *state) skippedKey(dh []byte, n uint) string {
-	// TODO: More compact representation.
-	nByte := []byte(fmt.Sprintf("_%d", n))
-	return string(append(dh, nByte...))
+	return fmt.Sprintf("%s%d", hex.EncodeToString(dh), n)
 }
 
 // skipMessageKeys skips message keys in the current receiving chain.
