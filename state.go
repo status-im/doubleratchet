@@ -137,21 +137,32 @@ func (s *state) RatchetDecrypt(m Message, ad AssociatedData) ([]byte, error) {
 	if plaintext != nil {
 		return plaintext, nil
 	}
+
+	// Is there a new ratchet key?
 	if m.Header.DH != s.DHr {
 		if err := s.skipMessageKeys(m.Header.PN); err != nil {
-			return nil, fmt.Errorf("failed to skip message keys: %s", err)
+			return nil, fmt.Errorf("failed to skip previous chain message keys: %s", err)
 		}
 		if err := s.dhRatchet(m.Header); err != nil {
 			// TODO: Rollback state changes.
 			return nil, fmt.Errorf("failed to perform ratchet step: %s", err)
 		}
 	}
-	s.skipMessageKeys(m.Header.N)
+
+	// After all, apply changes on the current chain.
+	if err := s.skipMessageKeys(m.Header.N); err != nil {
+		return nil, fmt.Errorf("failed to skip current chain message keys: %s", err)
+	}
 	var mk [32]byte
 	s.CKr, mk = s.Crypto.KdfCK(s.CKr)
 	s.Nr++
-	// TODO: Discard the message in case of error and rollback the state.
-	return s.Crypto.Decrypt(mk, m.Ciphertext, m.Header.EncodeWithAD(ad))
+	plaintext, err = s.Crypto.Decrypt(mk, m.Ciphertext, m.Header.EncodeWithAD(ad))
+	if err != nil {
+		// TODO: Rollback state changes.
+		return nil, fmt.Errorf("failed to decrypt: %s", err)
+	}
+
+	return plaintext, nil
 }
 
 // trySkippedMessageKeys tries to decrypt the message with a skipped message key.
@@ -181,6 +192,7 @@ func (s *state) skipMessageKeys(until uint) error {
 	if s.Nr+s.MaxSkip < until {
 		return fmt.Errorf("too many messages: %d", until-s.Nr)
 	}
+	//TODO: Fill s.CKr in the very beginning.
 	//if s.CKr != nil {
 	//for s.Nr < until {
 	//	var mk [32]byte
