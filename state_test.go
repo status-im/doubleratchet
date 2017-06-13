@@ -184,3 +184,44 @@ func TestState_RatchetDecrypt_CommunicationPingPong(t *testing.T) {
 		})
 	}
 }
+
+func TestState_RatchetDecrypt_CommunicationSkippedMessages(t *testing.T) {
+	// Arrange.
+	var (
+		bobI, _ = New(sk, WithMaxSkip(1))
+		bob     = bobI.(*state)
+
+		aliceI, _ = New(sk, WithMaxSkip(1), WithRemoteKey(bob.DHs.PublicKey()))
+		alice     = aliceI.(*state)
+	)
+
+	t.Run("skipped messages from alice", func(t *testing.T) {
+		// Arrange.
+		var (
+			m1 = alice.RatchetEncrypt([]byte("hi"), nil)
+			m2 = alice.RatchetEncrypt([]byte("bob"), nil)
+			m3 = alice.RatchetEncrypt([]byte("how are you?"), nil)
+			m4 = alice.RatchetEncrypt([]byte("still do cryptography?"), nil)
+		)
+
+		// Act and assert.
+		d, err := bob.RatchetDecrypt(m2, nil) // Decrypted and skipped.
+		require.Nil(t, err)
+		require.Equal(t, []byte("bob"), d)
+
+		_, err = bob.RatchetDecrypt(m4, nil) // Error: too many to skip.
+		require.Nil(t, err)
+
+		d, err = bob.RatchetDecrypt(m3, nil) // Decrypted.
+		require.Nil(t, err)
+		require.Equal(t, []byte("how are you?"), d)
+
+		d, err = bob.RatchetDecrypt(m4, nil) // Decrypted.
+		require.Nil(t, err)
+		require.Equal(t, []byte("still do cryptography?"), d)
+
+		d, err = bob.RatchetDecrypt(m1, nil) // Decrypted.
+		require.Nil(t, err)
+		require.Equal(t, []byte("hi"), d)
+	})
+}

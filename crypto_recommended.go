@@ -78,7 +78,7 @@ func (c DefaultCrypto) KdfCK(ck [32]byte) (chainKey [32]byte, msgKey [32]byte) {
 }
 
 // Encrypt uses a slightly different approach than in the algorithm specification:
-// it uses AES-256-CTR instead of AES-256-CBC for security, ciphertext length and implementation
+// it uses AES-128-CTR instead of AES-128-CBC for security, ciphertext length and implementation
 // complexity considerations.
 func (c DefaultCrypto) Encrypt(mk [32]byte, plaintext, associatedData []byte) []byte {
 	encKey, authKey, iv := c.deriveEncKeys(mk)

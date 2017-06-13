@@ -1,5 +1,8 @@
 package doubleratchet
 
+// TODO: Skipped messages deletion?
+// FIXME: Correct MaxSkip handling for message numbers like: 1, 3, 5
+
 import (
 	"encoding/hex"
 	"fmt"
@@ -7,11 +10,11 @@ import (
 
 // State of the party involved in The Double Ratchet Algorithm.
 type State interface {
-	// RatchetEncrypt performs a symmetric-key ratchet step, then encrypts the message with
+	// RatchetEncrypt performs a symmetric-key ratchet step, then AEAD-encrypts the message with
 	// the resulting message key.
 	RatchetEncrypt(plaintext []byte, ad AssociatedData) Message
 
-	// RatchetDecrypt is called to decrypt messages.
+	// RatchetDecrypt is called to AEAD-decrypt messages.
 	RatchetDecrypt(m Message, ad AssociatedData) ([]byte, error)
 }
 
@@ -91,12 +94,12 @@ func WithRemoteKey(dhRemotePubKey [32]byte) Option {
 }
 
 // WithMaxSkip specifies the maximum number of skipped message in a single chain.
-func WithMaxSkip(maxSkip int) Option {
+func WithMaxSkip(n int) Option {
 	return func(s *state) error {
-		if maxSkip < 0 {
-			return fmt.Errorf("maxSkip must be non-negative")
+		if n < 0 {
+			return fmt.Errorf("n must be non-negative")
 		}
-		s.MaxSkip = uint(maxSkip)
+		s.MaxSkip = uint(n)
 		return nil
 	}
 }
@@ -181,7 +184,7 @@ func (s *state) skippedKey(dh []byte, n uint) string {
 
 // skipMessageKeys skips message keys in the current receiving chain.
 func (s *state) skipMessageKeys(until uint) error {
-	// until exceeds the number of messages in the receiving chain on more than s.MaxSkip
+	// until exceeds the number of messages in the receiving chain for no more than s.MaxSkip
 	if s.Nr+s.MaxSkip < until {
 		return fmt.Errorf("too many messages: %d", until-s.Nr)
 	}
