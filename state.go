@@ -129,6 +129,7 @@ func (s *state) RatchetEncrypt(plaintext []byte, ad AssociatedData) Message {
 
 // RatchetDecrypt is called to decrypt messages.
 func (s *state) RatchetDecrypt(m Message, ad AssociatedData) ([]byte, error) {
+	// Is the messages one of the skipped?
 	plaintext, err := s.trySkippedMessageKeys(m, ad)
 	if err != nil {
 		return nil, fmt.Errorf("can't decrypt skipped message: %s", err)
@@ -136,8 +137,10 @@ func (s *state) RatchetDecrypt(m Message, ad AssociatedData) ([]byte, error) {
 	if plaintext != nil {
 		return plaintext, nil
 	}
-	if m.Header.DH != s.DHs.PublicKey() {
-		s.skipMessageKeys(m.Header.PN)
+	if m.Header.DH != s.DHr {
+		if err := s.skipMessageKeys(m.Header.PN); err != nil {
+			return nil, fmt.Errorf("failed to skip message keys: %s", err)
+		}
 		if err := s.dhRatchet(m.Header); err != nil {
 			// TODO: Rollback state changes.
 			return nil, fmt.Errorf("failed to perform ratchet step: %s", err)
@@ -147,19 +150,19 @@ func (s *state) RatchetDecrypt(m Message, ad AssociatedData) ([]byte, error) {
 	var mk [32]byte
 	s.CKr, mk = s.Crypto.KdfCK(s.CKr)
 	s.Nr++
-	// TODO: Discard the message in case of error and rollback the skipped key.
+	// TODO: Discard the message in case of error and rollback the state.
 	return s.Crypto.Decrypt(mk, m.Ciphertext, m.Header.EncodeWithAD(ad))
 }
 
 // trySkippedMessageKeys tries to decrypt the message with a skipped message key.
 func (s *state) trySkippedMessageKeys(m Message, ad AssociatedData) ([]byte, error) {
-	skippedKey := s.skippedKey(m.Header.DH[:], m.Header.N)
-	if mk, ok := s.MkSkipped[skippedKey]; ok {
+	k := s.skippedKey(m.Header.DH[:], m.Header.N)
+	if mk, ok := s.MkSkipped[k]; ok {
 		plaintext, err := s.Crypto.Decrypt(mk, m.Ciphertext, m.Header.EncodeWithAD(ad))
 		if err != nil {
 			return nil, err
 		}
-		delete(s.MkSkipped, skippedKey)
+		delete(s.MkSkipped, k)
 		return plaintext, nil
 	}
 	return nil, nil
@@ -173,14 +176,11 @@ func (s *state) skippedKey(dh []byte, n uint) string {
 }
 
 // skipMessageKeys skips message keys in the current receiving chain.
-func (s *state) skipMessageKeys(until uint) {
-	// TODO: What is it?..
+func (s *state) skipMessageKeys(until uint) error {
+	// until exceeds the number of messages in the receiving chain on more than s.MaxSkip
 	if s.Nr+s.MaxSkip < until {
-		// TODO: Return error.
-		return
+		return fmt.Errorf("too many messages: %d", until-s.Nr)
 	}
-	// TODO: Why?..
-	// TODO: Fill CKr with something so that there's no such a check.
 	//if s.CKr != nil {
 	//for s.Nr < until {
 	//	var mk [32]byte
@@ -189,6 +189,7 @@ func (s *state) skipMessageKeys(until uint) {
 	//	s.Nr += 1
 	//}
 	//}
+	return nil
 }
 
 // dhRatchet performs a single ratchet step.
