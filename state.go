@@ -155,9 +155,12 @@ func (s *state) RatchetDecrypt(m Message, ad AssociatedData) ([]byte, error) {
 func (s *state) trySkippedMessageKeys(m Message, ad AssociatedData) ([]byte, error) {
 	skippedKey := s.skippedKey(m.Header.DH[:], m.Header.N)
 	if mk, ok := s.MkSkipped[skippedKey]; ok {
+		plaintext, err := s.Crypto.Decrypt(mk, m.Ciphertext, m.Header.EncodeWithAD(ad))
+		if err != nil {
+			return nil, err
+		}
 		delete(s.MkSkipped, skippedKey)
-		// TODO: Discard the message in case of error and rollback the skipped key.
-		return s.Crypto.Decrypt(mk, m.Ciphertext, m.Header.EncodeWithAD(ad))
+		return plaintext, nil
 	}
 	return nil, nil
 }
