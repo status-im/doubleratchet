@@ -21,7 +21,7 @@ type State interface {
 	// RatchetDecrypt is called to AEAD-decrypt messages.
 	RatchetDecrypt(m Message, ad AssociatedData) ([]byte, error)
 
-	// PublicKey returns the session public key.
+	// PublicKey returns the session's ratchet public key.
 	PublicKey() [32]byte
 }
 

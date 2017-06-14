@@ -212,7 +212,10 @@ func TestState_RatchetDecrypt_CommunicationSkippedMessages(t *testing.T) {
 		require.Nil(t, err)
 		require.Equal(t, []byte("how are you?"), d)
 
-		// TODO: Invalid signature to test state atomicity.
+		m3.Ciphertext[len(m3.Ciphertext)-1] ^= 10
+		_, err = bob.RatchetDecrypt(m3, nil) // Error: invalid signature.
+		require.NotNil(t, err)
+		m3.Ciphertext[len(m3.Ciphertext)-1] ^= 10
 
 		d, err = bob.RatchetDecrypt(m3, nil) // Decrypted.
 		require.Nil(t, err)
