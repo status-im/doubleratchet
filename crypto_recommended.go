@@ -19,6 +19,7 @@ import (
 // see function comments for details.
 type DefaultCrypto struct{}
 
+// See the Crypto interface.
 func (c DefaultCrypto) GenerateDH() (DHPair, error) {
 	var privKey [32]byte
 	if _, err := io.ReadFull(rand.Reader, privKey[:]); err != nil {
@@ -36,6 +37,7 @@ func (c DefaultCrypto) GenerateDH() (DHPair, error) {
 	}, nil
 }
 
+// See the Crypto interface.
 func (c DefaultCrypto) DH(dhPair DHPair, dhPub Key) Key {
 	var (
 		dhOut   [32]byte
@@ -46,6 +48,7 @@ func (c DefaultCrypto) DH(dhPair DHPair, dhPub Key) Key {
 	return dhOut
 }
 
+// See the Crypto interface.
 func (c DefaultCrypto) KdfRK(rk, dhOut Key) (rootKey Key, chainKey Key) {
 	var (
 		r   = hkdf.New(sha256.New, dhOut[:], rk[:], []byte("rsZUpEuXUqqwXBvSy3EcievAh4cMj6QL"))
@@ -60,6 +63,7 @@ func (c DefaultCrypto) KdfRK(rk, dhOut Key) (rootKey Key, chainKey Key) {
 	return
 }
 
+// See the Crypto interface.
 func (c DefaultCrypto) KdfCK(ck Key) (chainKey Key, msgKey Key) {
 	const (
 		ckInput = 15
@@ -96,6 +100,7 @@ func (c DefaultCrypto) Encrypt(mk Key, plaintext, ad AssociatedData) []byte {
 	return append(ciphertext, c.computeSignature(authKey[:], ciphertext, ad)...)
 }
 
+// See the Crypto interface.
 func (c DefaultCrypto) Decrypt(mk Key, authCiphertext, ad AssociatedData) ([]byte, error) {
 	var (
 		l          = len(authCiphertext)
