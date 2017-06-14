@@ -1,6 +1,7 @@
 package doubleratchet
 
 import (
+	"fmt"
 	"github.com/stretchr/testify/require"
 	"testing"
 )
@@ -21,6 +22,7 @@ func TestDhPair(t *testing.T) {
 	// Assert.
 	require.Equal(t, p.privateKey, privKey)
 	require.Equal(t, p.publicKey, pubKey)
+	require.Equal(t, fmt.Sprintf(`{privateKey: %s publicKey: %s}`, p.PrivateKey(), p.PublicKey()), p.String())
 }
 
 func TestDefaultCrypto_GenerateDH_Basic(t *testing.T) {
