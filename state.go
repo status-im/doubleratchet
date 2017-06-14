@@ -74,7 +74,7 @@ func New(sharedKey Key, opts ...option) (State, error) {
 		CKr:       sharedKey, // parties could send and receive messages from the very beginning.
 		MkSkipped: &KeysStorageInMemory{},
 		MaxSkip:   1000,
-		MaxKeep:   10,
+		MaxKeep:   100,
 		Crypto:    DefaultCrypto{},
 		PubKeys:   make(map[uint]Key),
 	}
