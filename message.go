@@ -4,20 +4,20 @@ import "fmt"
 
 // Message is a single message exchanged by the parties.
 type Message struct {
-	Header     MessageHeader
-	Ciphertext []byte
+	Header     MessageHeader `json:"header"`
+	Ciphertext []byte        `json:"ciphertext"`
 }
 
 // MessageHeader that is prepended to every message.
 type MessageHeader struct {
 	// DHr is the sender's current ratchet public key.
-	DH Key
+	DH Key `json:"dh"`
 
 	// N is the number of the message in the sending chain.
-	N uint
+	N uint `json:"n"`
 
 	// PN is the length of the previous sending chain.
-	PN uint
+	PN uint `json:"pn"`
 }
 
 // MarshalBinary makes MessageHeader implement the BinaryMarshaler interface.
