@@ -68,6 +68,14 @@ func TestNew_WithMaxSkip_Negative(t *testing.T) {
 	require.NotNil(t, err)
 }
 
+func TestNew_WithMaxKeep_Negative(t *testing.T) {
+	// Act.
+	_, err := New(sk, MaxKeep(-10))
+
+	// Assert.
+	require.NotNil(t, err)
+}
+
 func TestNew_WithRemoteKey(t *testing.T) {
 	// Act.
 	var (
