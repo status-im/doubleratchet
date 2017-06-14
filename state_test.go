@@ -114,6 +114,23 @@ func TestState_RatchetEncryptDecrypt_Basic(t *testing.T) {
 	require.NotEmpty(t, m.Ciphertext)
 }
 
+func TestState_RatchetDecrypt_CommunicationFailedWithNoPublicKey(t *testing.T) {
+	// Arrange.
+	var (
+		bob, _   = New(sk)
+		alice, _ = New(sk)
+	)
+
+	// Act.
+	var (
+		m      = alice.RatchetEncrypt([]byte("something important"), nil)
+		_, err = bob.RatchetDecrypt(m, nil)
+	)
+
+	// Assert.
+	require.NotNil(t, err) // Invalid signature.
+}
+
 func TestState_RatchetDecrypt_CommunicationAliceSends(t *testing.T) {
 	// Arrange.
 	var (

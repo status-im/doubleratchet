@@ -47,13 +47,14 @@ func main() {
 		0x1e, 0x2c, 0x9, 0x8d, 0x4b, 0x4d, 0xc1, 0x40,
 	}
 
-	// Bob is instantiated only with the shared secret.
+	// Bob MUST be created with the shared secret and CAN be initialized
+	// also with Alice's public key (see below).
 	bob, err := doubleratchet.New(sk)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	// Alice is instantiaed with the shared secret and Bob's public key which
+	// Alice MUST be created with the shared secret and Bob's public key which
 	// should be sent to Alice before the session begins.
 	alice, err := doubleratchet.New(sk, doubleratchet.RemoteKey(bob.PublicKey()))
 	if err != nil {
