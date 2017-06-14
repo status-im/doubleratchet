@@ -20,6 +20,9 @@ type State interface {
 
 	// RatchetDecrypt is called to AEAD-decrypt messages.
 	RatchetDecrypt(m Message, ad AssociatedData) ([]byte, error)
+
+	// PublicKey returns the session public key.
+	PublicKey() [32]byte
 }
 
 // Operations on this object are NOT THREAD-SAFE, make sure they're done in sequence.
@@ -166,6 +169,10 @@ func (s *state) RatchetDecrypt(m Message, ad AssociatedData) ([]byte, error) {
 	*s = sc
 
 	return plaintext, nil
+}
+
+func (s *state) PublicKey() [32]byte {
+	return s.DHs.PublicKey()
 }
 
 // trySkippedMessageKeys tries to decrypt the message with a skipped message key.

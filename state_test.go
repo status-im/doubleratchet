@@ -223,3 +223,15 @@ func TestState_RatchetDecrypt_CommunicationSkippedMessages(t *testing.T) {
 		require.Equal(t, []byte("hi"), d)
 	})
 }
+
+func TestState_PublicKey(t *testing.T) {
+	// Act.
+	var (
+		si, err = New(sk)
+		s       = si.(*state)
+	)
+
+	// Assert.
+	require.Nil(t, err)
+	require.Equal(t, s.DHs.PublicKey(), si.PublicKey())
+}
