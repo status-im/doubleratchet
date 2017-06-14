@@ -3,7 +3,6 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/tiabc/doubleratchet)](https://goreportcard.com/report/github.com/tiabc/doubleratchet)
 [![Build Status](https://travis-ci.org/tiabc/doubleratchet.svg?branch=master)](https://travis-ci.org/tiabc/doubleratchet)
 [![Coverage Status](https://coveralls.io/repos/github/tiabc/doubleratchet/badge.svg?branch=master)](https://coveralls.io/github/tiabc/doubleratchet?branch=master)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![GoDoc](https://godoc.org/github.com/tiabc/doubleratchet?status.svg)](https://godoc.org/github.com/tiabc/doubleratchet)
 
 [The Double Ratchet Algorithm](https://whispersystems.org/docs/specifications/doubleratchet) is used
@@ -56,7 +55,7 @@ func main() {
 
 	// Alice is instantiaed with the shared secret and Bob's public key which
 	// should be sent to Alice before the session begins.
-	alice, err := doubleratchet.New(sk, doubleratchet.WithRemoteKey(bob.PublicKey()))
+	alice, err := doubleratchet.New(sk, doubleratchet.RemoteKey(bob.PublicKey()))
 	if err != nil {
 		log.Fatal(err)
 	}

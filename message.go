@@ -11,7 +11,7 @@ type Message struct {
 // MessageHeader that is prepended to every message.
 type MessageHeader struct {
 	// DHr is the sender's current ratchet public key.
-	DH [32]byte
+	DH Key
 
 	// N is the number of the message in the sending chain.
 	N uint
@@ -27,8 +27,7 @@ func (mh MessageHeader) MarshalBinary() ([]byte, error) {
 		nums = []byte(fmt.Sprintf("_%d_%d", mh.N, mh.PN))
 	)
 	r = append(r, mh.DH[:]...)
-	r = append(r, nums...)
-	return []byte{}, nil
+	return append(r, nums...), nil
 }
 
 // EncodeWithAD is a helper method to encode the header together with the associated data.

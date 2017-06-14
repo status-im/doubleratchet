@@ -64,7 +64,7 @@ type state struct {
 
 // New creates state with the shared key and public key of the other party initiating the session.
 // If this party initiates the session, pubKey must be nil.
-func New(sharedKey Key, opts ...Option) (State, error) {
+func New(sharedKey Key, opts ...option) (State, error) {
 	if sharedKey == [32]byte{} {
 		return nil, fmt.Errorf("sharedKey must be non-zero")
 	}
@@ -94,11 +94,11 @@ func New(sharedKey Key, opts ...Option) (State, error) {
 	return s, nil
 }
 
-// Option is a constructor option.
-type Option func(*state) error
+// option is a constructor option.
+type option func(*state) error
 
-// WithRemoteKey specifies the remote public key for the sending chain.
-func WithRemoteKey(dhRemotePubKey Key) Option {
+// RemoteKey specifies the remote public key for the sending chain.
+func RemoteKey(dhRemotePubKey Key) option {
 	return func(s *state) error {
 		s.DHr = dhRemotePubKey
 		s.RK, s.CKs = s.Crypto.KdfRK(s.RK, s.Crypto.DH(s.DHs, s.DHr))
@@ -106,8 +106,8 @@ func WithRemoteKey(dhRemotePubKey Key) Option {
 	}
 }
 
-// WithMaxSkip specifies the maximum number of skipped message in a single chain.
-func WithMaxSkip(n int) Option {
+// MaxSkip specifies the maximum number of skipped message in a single chain.
+func MaxSkip(n int) option {
 	return func(s *state) error {
 		if n < 0 {
 			return fmt.Errorf("n must be non-negative")
@@ -117,9 +117,19 @@ func WithMaxSkip(n int) Option {
 	}
 }
 
+// MaxKeep specifies the maximum number of ratchet steps before a message is deleted.
+func MaxKeep(n int) option {
+	return func(s *state) error {
+		if n < 0 {
+			return fmt.Errorf("n must be non-negative")
+		}
+		s.MaxKeep = uint(n)
+		return nil
+	}
+}
+
 // TODO: WithKeysStorage.
 // TODO: WithCrypto.
-// TODO: WithMaxKeep.
 
 // RatchetEncrypt performs a symmetric-key ratchet step, then encrypts the message with
 // the resulting message key.
@@ -191,10 +201,11 @@ func (s *state) RatchetDecrypt(m Message, ad AssociatedData) ([]byte, error) {
 		s.Step++
 		if pubKey, ok := s.PubKeys[s.Step-s.MaxKeep]; ok {
 			s.MkSkipped.DeletePk(pubKey)
+			delete(s.PubKeys, s.Step-s.MaxKeep)
 		}
-	}
-	for _, skipped := range skippedKeys1 {
-		s.MkSkipped.Put(skipped.dhr, skipped.nr, skipped.mk)
+		for _, skipped := range skippedKeys1 {
+			s.MkSkipped.Put(skipped.dhr, skipped.nr, skipped.mk)
+		}
 	}
 	for _, skipped := range skippedKeys2 {
 		s.MkSkipped.Put(skipped.dhr, skipped.nr, skipped.mk)
@@ -215,6 +226,9 @@ type skippedKey struct {
 
 // skipMessageKeys skips message keys in the current receiving chain.
 func (s *state) skipMessageKeys(until uint) ([]skippedKey, error) {
+	if until < s.Nr {
+		return nil, fmt.Errorf("bad until: probably an out-of-order message that was deleted")
+	}
 	nSkipped := s.MkSkipped.Count(s.DHr)
 	if until-s.Nr+nSkipped > s.MaxSkip {
 		return nil, fmt.Errorf("too many messages")
