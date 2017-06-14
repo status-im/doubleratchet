@@ -36,16 +36,17 @@ func (c DefaultCrypto) GenerateDH() (DHPair, error) {
 	}, nil
 }
 
-func (c DefaultCrypto) DH(dhPair DHPair, dhPub [32]byte) [32]byte {
+func (c DefaultCrypto) DH(dhPair DHPair, dhPub Key) Key {
 	var (
 		dhOut   [32]byte
 		privKey [32]byte = dhPair.PrivateKey()
+		pubKey  [32]byte = dhPub
 	)
-	curve25519.ScalarMult(&dhOut, &privKey, &dhPub)
+	curve25519.ScalarMult(&dhOut, &privKey, &pubKey)
 	return dhOut
 }
 
-func (c DefaultCrypto) KdfRK(rk, dhOut [32]byte) (rootKey [32]byte, chainKey [32]byte) {
+func (c DefaultCrypto) KdfRK(rk, dhOut Key) (rootKey Key, chainKey Key) {
 	var (
 		r   = hkdf.New(sha256.New, dhOut[:], rk[:], []byte("rsZUpEuXUqqwXBvSy3EcievAh4cMj6QL"))
 		buf = make([]byte, 64)
@@ -59,7 +60,7 @@ func (c DefaultCrypto) KdfRK(rk, dhOut [32]byte) (rootKey [32]byte, chainKey [32
 	return
 }
 
-func (c DefaultCrypto) KdfCK(ck [32]byte) (chainKey [32]byte, msgKey [32]byte) {
+func (c DefaultCrypto) KdfCK(ck Key) (chainKey Key, msgKey Key) {
 	const (
 		ckInput = 15
 		mkInput = 16
@@ -80,7 +81,7 @@ func (c DefaultCrypto) KdfCK(ck [32]byte) (chainKey [32]byte, msgKey [32]byte) {
 // Encrypt uses a slightly different approach than in the algorithm specification:
 // it uses AES-256-CTR instead of AES-256-CBC for security, ciphertext length and implementation
 // complexity considerations.
-func (c DefaultCrypto) Encrypt(mk [32]byte, plaintext, associatedData []byte) []byte {
+func (c DefaultCrypto) Encrypt(mk Key, plaintext, ad AssociatedData) []byte {
 	encKey, authKey, iv := c.deriveEncKeys(mk)
 
 	ciphertext := make([]byte, aes.BlockSize+len(plaintext))
@@ -92,10 +93,10 @@ func (c DefaultCrypto) Encrypt(mk [32]byte, plaintext, associatedData []byte) []
 	)
 	stream.XORKeyStream(ciphertext[aes.BlockSize:], plaintext)
 
-	return append(ciphertext, c.computeSignature(authKey[:], ciphertext, associatedData)...)
+	return append(ciphertext, c.computeSignature(authKey[:], ciphertext, ad)...)
 }
 
-func (c DefaultCrypto) Decrypt(mk [32]byte, authCiphertext, associatedData []byte) ([]byte, error) {
+func (c DefaultCrypto) Decrypt(mk Key, authCiphertext, ad AssociatedData) ([]byte, error) {
 	var (
 		l          = len(authCiphertext)
 		ciphertext = authCiphertext[:l-sha256.Size]
@@ -105,7 +106,7 @@ func (c DefaultCrypto) Decrypt(mk [32]byte, authCiphertext, associatedData []byt
 	// Check the signature.
 	encKey, authKey, _ := c.deriveEncKeys(mk)
 
-	if s := c.computeSignature(authKey[:], ciphertext, associatedData); !bytes.Equal(s, signature) {
+	if s := c.computeSignature(authKey[:], ciphertext, ad); !bytes.Equal(s, signature) {
 		return nil, fmt.Errorf("invalid signature")
 	}
 
@@ -121,7 +122,7 @@ func (c DefaultCrypto) Decrypt(mk [32]byte, authCiphertext, associatedData []byt
 }
 
 // deriveEncKeys derive keys for message encryption and decryption. Returns (encKey, authKey, iv, err).
-func (c DefaultCrypto) deriveEncKeys(mk [32]byte) (encKey [32]byte, authKey [32]byte, iv [16]byte) {
+func (c DefaultCrypto) deriveEncKeys(mk Key) (encKey Key, authKey Key, iv [16]byte) {
 	// First, derive encryption and authentication key out of mk.
 	salt := make([]byte, 32)
 	var (
@@ -146,14 +147,18 @@ func (c DefaultCrypto) computeSignature(authKey, ciphertext, associatedData []by
 }
 
 type dhPair struct {
-	privateKey [32]byte
-	publicKey  [32]byte
+	privateKey Key
+	publicKey  Key
 }
 
-func (p dhPair) PrivateKey() [32]byte {
+func (p dhPair) PrivateKey() Key {
 	return p.privateKey
 }
 
-func (p dhPair) PublicKey() [32]byte {
+func (p dhPair) PublicKey() Key {
 	return p.publicKey
+}
+
+func (p dhPair) String() string {
+	return fmt.Sprintf("{privateKey: %s publicKey: %s}", p.privateKey, p.publicKey)
 }

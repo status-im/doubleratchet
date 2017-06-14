@@ -21,11 +21,13 @@ messages in case of a compromise of a party's keys.
 
     go get github.com/tiabc/doubleratchet
 
-then cd into the project directory and install dependencies:
+then `cd` into the project directory and install dependencies:
 
     glide up
+    
+If `glide` is not installed, [install it](https://github.com/Masterminds/glide).
 
-## Usage
+## Usage example
 
 ```go
 package main
@@ -76,10 +78,11 @@ func main() {
 
 ### The Double Ratchet logic
 
-1. TODO: Header encryption
-1. TODO: Skipped messages from a single ratchet step are deleted after 10 ratchet steps.
+1. No more than 1000 messages can be skipped in a single chain.
+1. Skipped messages from a single ratchet step are deleted after 10 ratchet steps.
 1. Both parties' sending and receiving chains are initialized with the shared key so that both
 of them could message each other from the very beginning.
+1. TODO: Header encryption
 
 ### Cryptographic primitives 
 
