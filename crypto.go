@@ -21,10 +21,10 @@ type Crypto interface {
 
 	// Encrypt returns an AEAD encryption of plaintext with message key mk. The associated_data
 	// is authenticated but is not included in the ciphertext. The AEAD nonce may be set to a constant.
-	Encrypt(mk Key, plaintext, ad AssociatedData) (authCiphertext []byte)
+	Encrypt(mk Key, plaintext, ad []byte) (authCiphertext []byte)
 
 	// Decrypt returns the AEAD decryption of ciphertext with message key mk.
-	Decrypt(mk Key, ciphertext, ad AssociatedData) (plaintext []byte, err error)
+	Decrypt(mk Key, ciphertext, ad []byte) (plaintext []byte, err error)
 }
 
 // DHPair is a general interface for DH pairs representation.

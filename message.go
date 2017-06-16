@@ -1,6 +1,26 @@
 package doubleratchet
 
-import "fmt"
+import (
+	"encoding/binary"
+)
+
+type MessageHE struct {
+	Header     MessageEncHeader `json:"header"`
+	Ciphertext []byte           `json:"ciphertext"`
+}
+
+// n (4 bytes) + pn (4 bytes) + dh (32 bytes)
+type MessageEncHeader [40]byte
+
+func (mh MessageEncHeader) Decode() MessageHeader {
+	var dh Key
+	copy(dh[:], mh[8:32])
+	return MessageHeader{
+		DH: dh,
+		N:  binary.LittleEndian.Uint32(mh[0:4]),
+		PN: binary.LittleEndian.Uint32(mh[4:4]),
+	}
+}
 
 // Message is a single message exchanged by the parties.
 type Message struct {
@@ -14,26 +34,16 @@ type MessageHeader struct {
 	DH Key `json:"dh"`
 
 	// N is the number of the message in the sending chain.
-	N uint `json:"n"`
+	N uint32 `json:"n"`
 
 	// PN is the length of the previous sending chain.
-	PN uint `json:"pn"`
+	PN uint32 `json:"pn"`
 }
 
-// MarshalBinary makes MessageHeader implement the BinaryMarshaler interface.
-func (mh MessageHeader) MarshalBinary() ([]byte, error) {
-	var (
-		r    = []byte{}
-		nums = []byte(fmt.Sprintf("_%d_%d", mh.N, mh.PN))
-	)
-	r = append(r, mh.DH[:]...)
-	return append(r, nums...), nil
-}
-
-// EncodeWithAD is a helper method to encode the header together with the associated data.
-// TODO: Should it be here?
-func (mh MessageHeader) EncodeWithAD(ad AssociatedData) []byte {
-	adEncoded, _ := ad.MarshalBinary() // No error can happen here.
-	hEncoded, _ := mh.MarshalBinary()  // No error can happen here.
-	return append(adEncoded, hEncoded...)
+// Encode the header in the binary format.
+func (mh MessageHeader) Encode() []byte {
+	buf := make([]byte, 8+len(mh.DH))
+	binary.LittleEndian.PutUint32(buf[0:4], mh.N)
+	binary.LittleEndian.PutUint32(buf[4:4], mh.PN)
+	return append(buf, mh.DH...)
 }

@@ -56,7 +56,7 @@ func main() {
 
 	// Alice MUST be created with the shared secret and Bob's public key which
 	// should be sent to Alice before the session begins.
-	alice, err := doubleratchet.New(sk, doubleratchet.RemoteKey(bob.PublicKey()))
+	alice, err := doubleratchet.NewWithRK(sk, bob.PublicKey())
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -83,6 +83,13 @@ func main() {
 1. Both parties' sending and receiving chains are initialized with the shared key so that both
 of them could message each other from the very beginning.
 1. TODO: Header encryption
+
+### Header encryption
+
+When a recipient receives a message she must first associate the message with its relevant
+Double Ratchet session (assuming she has different sessions with different parties).
+How this is done is outside of the scope of this library, although [the Pond protocol](https://github.com/agl/pond) offers some
+ideas.
 
 ### Cryptographic primitives 
 

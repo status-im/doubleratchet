@@ -18,7 +18,7 @@ func TestNew_Basic(t *testing.T) {
 	// Act.
 	var (
 		si, err = New(sk)
-		s       = si.(*state)
+		s       = si.(*session)
 	)
 
 	// Assert.
@@ -52,7 +52,7 @@ func TestNew_WithMaxSkip_OK(t *testing.T) {
 	// Act.
 	var (
 		si, err = New(sk, MaxSkip(100))
-		s       = si.(*state)
+		s       = si.(*session)
 	)
 
 	// Assert.
@@ -80,7 +80,7 @@ func TestNew_WithRemoteKey(t *testing.T) {
 	// Act.
 	var (
 		si, err = New(sk, RemoteKey(bobPair.PublicKey()))
-		s       = si.(*state)
+		s       = si.(*session)
 	)
 
 	// Assert.
@@ -95,7 +95,7 @@ func TestState_RatchetEncryptDecrypt_Basic(t *testing.T) {
 	// Arrange.
 	var (
 		si, err = New(sk, RemoteKey(bobPair.PublicKey()))
-		s       = si.(*state)
+		s       = si.(*session)
 		oldCKs  = s.CKs
 	)
 
@@ -184,10 +184,10 @@ func TestState_RatchetDecrypt_CommunicationSkippedMessages(t *testing.T) {
 	// Arrange.
 	var (
 		bobI, _ = New(sk, MaxSkip(1))
-		bob     = bobI.(*state)
+		bob     = bobI.(*session)
 
 		aliceI, _ = New(sk, MaxSkip(1), RemoteKey(bob.DHs.PublicKey()))
-		alice     = aliceI.(*state)
+		alice     = aliceI.(*session)
 	)
 
 	t.Run("skipped messages from alice", func(t *testing.T) {
@@ -256,8 +256,8 @@ func TestState_SkippedKeysDeletion(t *testing.T) {
 type SessionTestHelper struct {
 	t *testing.T
 
-	alice State
-	bob   State
+	alice Session
+	bob   Session
 }
 
 func (h SessionTestHelper) AliceToBob(msg string, ad AssociatedData) {
@@ -280,7 +280,7 @@ func (h SessionTestHelper) BobToAlice(msg string, ad AssociatedData) {
 	require.EqualValues(h.t, msgByte, d)
 }
 
-func (h SessionTestHelper) MustDecrypt(party State, m Message, ad AssociatedData) []byte {
+func (h SessionTestHelper) MustDecrypt(party Session, m Message, ad []byte) []byte {
 	pt, err := party.RatchetDecrypt(m, ad)
 	require.Nil(h.t, err)
 	return pt
