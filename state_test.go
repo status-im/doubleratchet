@@ -37,7 +37,7 @@ func TestNew_Basic(t *testing.T) {
 	require.NotEmpty(t, s.MaxSkip)
 	require.NotEmpty(t, s.MaxKeep)
 	require.NotNil(t, s.Crypto)
-	require.NotNil(t, s.PubKeys)
+	require.NotNil(t, s.DeleteKeys)
 }
 
 func TestNew_BadSharedKey(t *testing.T) {

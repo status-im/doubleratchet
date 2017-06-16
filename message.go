@@ -5,8 +5,8 @@ import (
 )
 
 type MessageHE struct {
-	Header     MessageEncHeader `json:"header"`
-	Ciphertext []byte           `json:"ciphertext"`
+	Header     []byte `json:"header"`
+	Ciphertext []byte `json:"ciphertext"`
 }
 
 // n (4 bytes) + pn (4 bytes) + dh (32 bytes)

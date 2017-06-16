@@ -2,20 +2,22 @@ package doubleratchet
 
 // KeysStorage is an interface of an abstract in-memory or persistent keys storage.
 type KeysStorage interface {
-	// Get returns a message key by the given public key and message number.
-	Get(pubKey Key, msgNum uint) (mk Key, ok bool)
+	// Get returns a message key by the given key and message number.
+	Get(k Key, msgNum uint) (mk Key, ok bool)
 
-	// Put saves the given mk under the specified pubKey and msgNum.
-	Put(pubKey Key, msgNum uint, mk Key)
+	// Put saves the given mk under the specified key and msgNum.
+	Put(k Key, msgNum uint, mk Key)
 
-	// DeleteMk ensures there's no message key under the specified pubKey and msgNum.
-	DeleteMk(pubKey Key, msgNum uint)
+	// DeleteMk ensures there's no message key under the specified key and msgNum.
+	DeleteMk(k Key, msgNum uint)
 
-	// DeletePk ensures there's no message keys under the specified pubKey.
-	DeletePk(pubKey Key)
+	// DeletePk ensures there's no message keys under the specified key.
+	DeletePk(k Key)
 
 	// Count returns number of message keys stored under pubKey.
-	Count(pubKey Key) uint
+	Count(k Key) uint
+
+	All() map[Key]map[uint]Key
 }
 
 // KeysStorageInMemory is an in-memory message keys storage.
@@ -79,4 +81,8 @@ func (s *KeysStorageInMemory) Count(pubKey Key) uint {
 		return 0
 	}
 	return uint(len(s.keys[pubKey]))
+}
+
+func (s *KeysStorageInMemory) All() map[Key]map[uint]Key {
+	return s.keys
 }

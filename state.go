@@ -38,18 +38,18 @@ type PublicKeyer interface {
 }
 
 type rootChain struct {
-	Crypto Crypto // TODO: Only KdfRK is used + KdfCK is needed to pass it to chain.
+	Crypto Crypto // TODO: Only KdfRK is used.
 
 	// 32-byte chain key.
 	CK Key
 }
 
-func (c rootChain) Step(kdfInput Key) chain {
-	ch := chain{
+func (c rootChain) Step(kdfInput Key) (ch chain, nhk Key) {
+	ch = chain{
 		Crypto: c.Crypto,
 	}
-	c.CK, ch.CK = c.Crypto.KdfRK(c.CK, kdfInput)
-	return ch
+	c.CK, ch.CK, nhk = c.Crypto.KdfRK(c.CK, kdfInput)
+	return ch, nhk
 }
 
 type chain struct {
@@ -60,9 +60,6 @@ type chain struct {
 
 	// Messages count in the chain.
 	N uint32
-
-	// Header Key and Next Header Key.
-	HK, NHK Key
 }
 
 // Step performs chain step and returns message key.
@@ -86,14 +83,17 @@ type state struct {
 	// Symmetric ratchet root chain.
 	RootCh rootChain
 
-	// Symmetric ratchet sending chain.
-	SendCh chain
-
-	// Symmetric ratchet receiving chain.
-	RecvCh chain
+	// Symmetric ratchet sending and receiving chains.
+	SendCh, RecvCh chain
 
 	// Number of messages in previous sending chain.
 	PN uint32
+
+	// Receiving header key and next header key.
+	HKr, NHKr Key
+
+	// Sending header key and next header key.
+	HKs, NHKs Key
 }
 
 func newState(sharedKey Key, c Crypto) (state, error) {
@@ -113,16 +113,18 @@ func newState(sharedKey Key, c Crypto) (state, error) {
 }
 
 // dhRatchet performs a single ratchet step.
-func (s *state) dhRatchet(mh MessageHeader) error {
+func (s *state) dhRatchet(m MessageHeader) error {
 	s.PN = s.SendCh.N
-	s.DHr = mh.DH
-	s.RecvCh = s.RootCh.Step(s.Crypto.DH(s.DHs, s.DHr))
+	s.DHr = m.DH
+	s.HKs = s.NHKs
+	s.HKr = s.NHKr
+	s.RecvCh, s.NHKr = s.RootCh.Step(s.Crypto.DH(s.DHs, s.DHr))
 	var err error
 	s.DHs, err = s.Crypto.GenerateDH()
 	if err != nil {
 		return fmt.Errorf("failed to generate dh pair: %s", err)
 	}
-	s.SendCh = s.RootCh.Step(s.Crypto.DH(s.DHs, s.DHr))
+	s.SendCh, s.NHKs = s.RootCh.Step(s.Crypto.DH(s.DHs, s.DHr))
 	return nil
 }
 
@@ -158,7 +160,7 @@ type session struct {
 	Step uint
 
 	// Shows what public key for the receiving chain was used at the specified step.
-	PubKeys map[uint]Key
+	DeleteKeys map[uint]Key
 }
 
 // New creates session with the shared key.
@@ -174,12 +176,12 @@ func New(sharedKey Key, opts ...option) (Session, error) {
 		return nil, fmt.Errorf("failed to create state: %s", err)
 	}
 	s := &session{
-		state:     state,
-		MkSkipped: &KeysStorageInMemory{},
-		MaxSkip:   1000,
-		MaxKeep:   100,
-		Crypto:    c,
-		PubKeys:   make(map[uint]Key),
+		state:      state,
+		MkSkipped:  &KeysStorageInMemory{},
+		MaxSkip:    1000,
+		MaxKeep:    100,
+		Crypto:     c,
+		DeleteKeys: make(map[uint]Key),
 	}
 
 	for i := range opts {
@@ -241,19 +243,102 @@ func (s *session) RatchetEncrypt(plaintext, ad []byte) Message {
 
 func (s *session) RatchetEncryptHE(plaintext, ad []byte) MessageHE {
 	var (
-		hEnc  MessageEncHeader
 		h, mk = s.state.SymmetricStep()
+		hEnc  = s.Crypto.Encrypt(s.state.HKs, h.Encode(), nil)
 	)
-	hEnc[:] = s.Crypto.Encrypt(s.state.SendCh.HK, h.Encode(), nil)
 	return MessageHE{
 		Header:     hEnc,
 		Ciphertext: s.Crypto.Encrypt(mk, plaintext, append(ad, hEnc...)),
 	}
 }
 
+func (s *session) RatchetDecryptHE(m MessageHE, ad []byte) ([]byte, error) {
+	// Is the message one of the skipped?
+	// TODO: Replace this part with TrySkippedMessages.
+	for hk, keys := range s.MkSkipped.All() {
+		for n, mk := range keys {
+			var (
+				hEnc, err = s.Crypto.Decrypt(hk, m.Header[:], nil)
+				h         = MessageEncHeader(hEnc).Decode()
+			)
+			if err == nil && uint(h.N) == n {
+				plaintext, err := s.Crypto.Decrypt(mk, m.Ciphertext, append(ad, m.Header...))
+				if err != nil {
+					return nil, fmt.Errorf("can't decrypt skipped message: %s", err)
+				}
+				s.MkSkipped.DeleteMk(hk, n)
+				return plaintext, nil
+			}
+		}
+	}
+
+	h, step, err := s.DecryptHeaderHE(m.Header)
+	if err != nil {
+		return nil, fmt.Errorf("can't decrypt header: %s", err)
+	}
+
+	var (
+		// All changes must be applied on a different session object, so that this session won't be modified nor left in a dirty session.
+		sc state = s.state
+
+		skippedKeys1 []skippedKey
+		skippedKeys2 []skippedKey
+	)
+	if step {
+		// TODO: Here is the same code.
+		if skippedKeys1, err = sc.skipMessageKeys(s.state.HKr, h.PN); err != nil {
+			return nil, fmt.Errorf("can't skip previous chain message keys: %s", err)
+		}
+		if err = sc.dhRatchet(h); err != nil {
+			return nil, fmt.Errorf("can't perform ratchet step: %s", err)
+		}
+	}
+
+	// After all, update the current chain.
+	if skippedKeys2, err = sc.skipMessageKeys(s.state.HKr, h.N); err != nil {
+		return nil, fmt.Errorf("can't skip current chain message keys: %s", err)
+	}
+	mk := sc.RecvCh.Step()
+	plaintext, err := s.Crypto.Decrypt(mk, m.Ciphertext, append(ad, m.Header...))
+	if err != nil {
+		return nil, fmt.Errorf("can't decrypt: %s", err)
+	}
+
+	// Apply changes.
+	// TODO: s.preserveChanges(sc, key, append(skippedKeys1, skippedKeys2...))
+	s.state = sc
+	if step {
+		s.DeleteKeys[s.Step] = s.state.HKr
+		s.Step++
+		if hk, ok := s.DeleteKeys[s.Step-s.MaxKeep]; ok {
+			s.MkSkipped.DeletePk(hk)
+			delete(s.DeleteKeys, s.Step-s.MaxKeep)
+		}
+		for _, skipped := range skippedKeys1 {
+			s.MkSkipped.Put(skipped.key, skipped.nr, skipped.mk)
+		}
+	}
+	for _, skipped := range skippedKeys2 {
+		s.MkSkipped.Put(skipped.key, skipped.nr, skipped.mk)
+	}
+
+	return plaintext, nil
+}
+
+func (s *session) DecryptHeaderHE(encHeader []byte) (MessageHeader, bool, error) {
+	if encoded, err := s.Crypto.Decrypt(s.state.HKr, encHeader, nil); err == nil {
+		return MessageEncHeader(encoded).Decode(), false, nil
+	}
+	if encoded, err := s.Crypto.Decrypt(s.state.HKr, encHeader, nil); err == nil {
+		return MessageEncHeader(encoded).Decode(), true, nil
+	}
+	return MessageHeader{}, false, fmt.Errorf("invalid message header")
+}
+
 // RatchetDecrypt is called to decrypt messages.
 func (s *session) RatchetDecrypt(m Message, ad []byte) ([]byte, error) {
 	// Is the message one of the skipped?
+	// TODO: Replace this part with TrySkippedMessages.
 	if mk, ok := s.MkSkipped.Get(m.Header.DH, uint(m.Header.N)); ok {
 		plaintext, err := s.Crypto.Decrypt(mk, m.Ciphertext, append(ad, m.Header.Encode()...))
 		if err != nil {
@@ -275,7 +360,8 @@ func (s *session) RatchetDecrypt(m Message, ad []byte) ([]byte, error) {
 	// Is there a new ratchet key?
 	isDHStepped := false
 	if m.Header.DH != sc.DHr {
-		if skippedKeys1, err = sc.skipMessageKeys(m.Header.PN); err != nil {
+		// TODO: Here is the same code.
+		if skippedKeys1, err = sc.skipMessageKeys(sc.DHr, m.Header.PN); err != nil {
 			return nil, fmt.Errorf("can't skip previous chain message keys: %s", err)
 		}
 		if err = sc.dhRatchet(m.Header); err != nil {
@@ -285,7 +371,7 @@ func (s *session) RatchetDecrypt(m Message, ad []byte) ([]byte, error) {
 	}
 
 	// After all, update the current chain.
-	if skippedKeys2, err = sc.skipMessageKeys(m.Header.N); err != nil {
+	if skippedKeys2, err = sc.skipMessageKeys(sc.DHr, m.Header.N); err != nil {
 		return nil, fmt.Errorf("can't skip current chain message keys: %s", err)
 	}
 	mk := sc.RecvCh.Step()
@@ -297,18 +383,18 @@ func (s *session) RatchetDecrypt(m Message, ad []byte) ([]byte, error) {
 	// Apply changes.
 	s.state = sc
 	if isDHStepped {
-		s.PubKeys[s.Step] = s.state.DHr
+		s.DeleteKeys[s.Step] = s.state.DHr
 		s.Step++
-		if pubKey, ok := s.PubKeys[s.Step-s.MaxKeep]; ok {
+		if pubKey, ok := s.DeleteKeys[s.Step-s.MaxKeep]; ok {
 			s.MkSkipped.DeletePk(pubKey)
-			delete(s.PubKeys, s.Step-s.MaxKeep)
+			delete(s.DeleteKeys, s.Step-s.MaxKeep)
 		}
 		for _, skipped := range skippedKeys1 {
-			s.MkSkipped.Put(skipped.dhr, skipped.nr, skipped.mk)
+			s.MkSkipped.Put(skipped.key, skipped.nr, skipped.mk)
 		}
 	}
 	for _, skipped := range skippedKeys2 {
-		s.MkSkipped.Put(skipped.dhr, skipped.nr, skipped.mk)
+		s.MkSkipped.Put(skipped.key, skipped.nr, skipped.mk)
 	}
 
 	return plaintext, nil
@@ -319,17 +405,18 @@ func (s *session) PublicKey() Key {
 }
 
 type skippedKey struct {
-	dhr Key
+	key Key
 	nr  uint
 	mk  Key
 }
 
 // skipMessageKeys skips message keys in the current receiving chain.
-func (s *session) skipMessageKeys(until uint) ([]skippedKey, error) {
+// TODO: Move it to state.
+func (s *session) skipMessageKeys(key Key, until uint) ([]skippedKey, error) {
 	if until < uint(s.state.RecvCh.N) {
 		return nil, fmt.Errorf("bad until: probably an out-of-order message that was deleted")
 	}
-	nSkipped := s.MkSkipped.Count(s.state.DHr)
+	nSkipped := s.MkSkipped.Count(key)
 	if until-uint(s.state.RecvCh.N)+nSkipped > s.MaxSkip {
 		return nil, fmt.Errorf("too many messages")
 	}
@@ -337,7 +424,7 @@ func (s *session) skipMessageKeys(until uint) ([]skippedKey, error) {
 	for uint(s.state.RecvCh.N) < until {
 		mk := s.state.RecvCh.Step()
 		skipped = append(skipped, skippedKey{
-			dhr: s.state.DHr,
+			key: key,
 			nr:  uint(s.state.RecvCh.N - 1),
 			mk:  mk,
 		})
