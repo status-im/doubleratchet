@@ -19,6 +19,14 @@ func TestNew(t *testing.T) {
 	require.NotEqual(t, Key{}, s.DHs.PublicKey())
 }
 
+func TestNew_BadOption(t *testing.T) {
+	// Act.
+	_, err := New(sk, bobPair, WithMaxSkip(-10))
+
+	// Assert.
+	require.NotNil(t, err)
+}
+
 func TestNewWithRemoteKey(t *testing.T) {
 	// Act.
 	var (
@@ -34,6 +42,14 @@ func TestNewWithRemoteKey(t *testing.T) {
 	require.NotEqual(t, sk, s.RootCh.CK)
 	require.NotEqual(t, Key{}, s.SendCh.CK)
 	require.NotEqual(t, sk, s.SendCh.CK)
+}
+
+func TestNewWithRemoteKey_BadOption(t *testing.T) {
+	// Act.
+	_, err := NewWithRemoteKey(sk, bobPair.PublicKey(), WithMaxSkip(-10))
+
+	// Assert.
+	require.NotNil(t, err)
 }
 
 func TestSession_RatchetEncrypt_Basic(t *testing.T) {

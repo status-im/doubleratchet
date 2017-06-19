@@ -47,7 +47,7 @@ func TestNewState_Basic(t *testing.T) {
 	require.NotNil(t, s.DeleteKeys)
 }
 
-func TestNew_BadSharedKey(t *testing.T) {
+func TestNewState_BadSharedKey(t *testing.T) {
 	// Act.
 	_, err := newState([32]byte{})
 
