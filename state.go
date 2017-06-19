@@ -72,12 +72,14 @@ type state struct {
 	DeleteKeys map[uint]Key
 }
 
-func newState(sharedKey Key, c Crypto) (state, error) {
+func newState(sharedKey Key, opts ...option) (state, error) {
+	c := DefaultCrypto{}
 	dhs, err := c.GenerateDH()
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate dh pair: %s", err)
 	}
-	return state{
+
+	s := state{
 		Crypto: c,
 		DHs:    dhs,
 		RootCh: rootChain{CK: sharedKey, Crypto: c},
@@ -89,7 +91,15 @@ func newState(sharedKey Key, c Crypto) (state, error) {
 		MaxSkip:    1000,
 		MaxKeep:    100,
 		DeleteKeys: make(map[uint]Key),
-	}, nil
+	}
+
+	for i := range opts {
+		if err := opts[i](&s); err != nil {
+			return nil, fmt.Errorf("failed to apply option: %s", err)
+		}
+	}
+
+	return s, nil
 }
 
 // dhRatchet performs a single ratchet step.
@@ -153,35 +163,16 @@ func (s *state) deleteSkippedKeys(key Key) {
 
 // Operations on this object are NOT THREAD-SAFE, make sure they're done in sequence.
 type session struct {
-	state state
-
-	// Cryptography functions for the Double Ratchet Algorithm.
-	Crypto Crypto
+	state
 }
 
 // New creates session with the shared key.
 func New(sharedKey Key, opts ...option) (Session, error) {
-	if sharedKey == [32]byte{} {
-		return nil, fmt.Errorf("sharedKey must be non-zero")
-	}
-	var (
-		c          = DefaultCrypto{}
-		state, err = newState(sharedKey, c)
-	)
+	state, err := newState(sharedKey, opts...)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create state: %s", err)
+		return nil, err
 	}
-	s := &session{
-		state:  state,
-		Crypto: c,
-	}
-
-	for i := range opts {
-		if err := opts[i](&s.state); err != nil {
-			return nil, fmt.Errorf("failed to apply option: %s", err)
-		}
-	}
-
+	s := &session{state}
 	return s, nil
 }
 
@@ -200,11 +191,11 @@ func NewWithRK(sharedKey, remoteKey Key, opts ...option) (Session, error) {
 func (s *session) RatchetEncrypt(plaintext, ad []byte) Message {
 	var (
 		h = MessageHeader{
-			DH: s.state.DHs.PublicKey(),
-			N:  s.state.SendCh.N,
-			PN: s.state.PN,
+			DH: s.DHs.PublicKey(),
+			N:  s.SendCh.N,
+			PN: s.PN,
 		}
-		mk = s.state.SendCh.Step()
+		mk = s.SendCh.Step()
 		ct = s.Crypto.Encrypt(mk, plaintext, append(ad, h.Encode()...))
 	)
 	return Message{h, ct}
@@ -215,12 +206,12 @@ func (s *session) RatchetEncrypt(plaintext, ad []byte) Message {
 func (s *session) RatchetEncryptHE(plaintext, ad []byte) MessageHE {
 	var (
 		h = MessageHeader{
-			DH: s.state.DHs.PublicKey(),
-			N:  s.state.SendCh.N,
-			PN: s.state.PN,
+			DH: s.DHs.PublicKey(),
+			N:  s.SendCh.N,
+			PN: s.PN,
 		}
-		mk   = s.state.SendCh.Step()
-		hEnc = s.Crypto.Encrypt(s.state.HKs, h.Encode(), nil)
+		mk   = s.SendCh.Step()
+		hEnc = s.Crypto.Encrypt(s.HKs, h.Encode(), nil)
 	)
 	return MessageHE{
 		Header:     hEnc,
@@ -230,7 +221,7 @@ func (s *session) RatchetEncryptHE(plaintext, ad []byte) MessageHE {
 
 func (s *session) RatchetDecryptHE(m MessageHE, ad []byte) ([]byte, error) {
 	// Is the message one of the skipped?
-	for hk, keys := range s.state.MkSkipped.All() {
+	for hk, keys := range s.MkSkipped.All() {
 		for n, mk := range keys {
 			var (
 				hEnc, err = s.Crypto.Decrypt(hk, m.Header, nil)
@@ -241,7 +232,7 @@ func (s *session) RatchetDecryptHE(m MessageHE, ad []byte) ([]byte, error) {
 				if err != nil {
 					return nil, fmt.Errorf("can't decrypt skipped message: %s", err)
 				}
-				s.state.MkSkipped.DeleteMk(hk, n)
+				s.MkSkipped.DeleteMk(hk, n)
 				return plaintext, nil
 			}
 		}
@@ -260,7 +251,7 @@ func (s *session) RatchetDecryptHE(m MessageHE, ad []byte) ([]byte, error) {
 		skippedKeys2 []skippedKey
 	)
 	if step {
-		if skippedKeys1, err = sc.skipMessageKeys(s.state.HKr, uint(h.PN)); err != nil {
+		if skippedKeys1, err = sc.skipMessageKeys(s.HKr, uint(h.PN)); err != nil {
 			return nil, fmt.Errorf("can't skip previous chain message keys: %s", err)
 		}
 		if err = sc.dhRatchet(h); err != nil {
@@ -269,7 +260,7 @@ func (s *session) RatchetDecryptHE(m MessageHE, ad []byte) ([]byte, error) {
 	}
 
 	// After all, update the current chain.
-	if skippedKeys2, err = sc.skipMessageKeys(s.state.HKr, uint(h.N)); err != nil {
+	if skippedKeys2, err = sc.skipMessageKeys(s.HKr, uint(h.N)); err != nil {
 		return nil, fmt.Errorf("can't skip current chain message keys: %s", err)
 	}
 	mk := sc.RecvCh.Step()
@@ -278,19 +269,19 @@ func (s *session) RatchetDecryptHE(m MessageHE, ad []byte) ([]byte, error) {
 		return nil, fmt.Errorf("can't decrypt: %s", err)
 	}
 
-	s.state.applyChanges(sc, append(skippedKeys1, skippedKeys2...))
+	s.applyChanges(sc, append(skippedKeys1, skippedKeys2...))
 	if step {
-		s.state.deleteSkippedKeys(s.state.HKr)
+		s.deleteSkippedKeys(s.HKr)
 	}
 
 	return plaintext, nil
 }
 
 func (s *session) DecryptHeaderHE(encHeader []byte) (MessageHeader, bool, error) {
-	if encoded, err := s.Crypto.Decrypt(s.state.HKr, encHeader, nil); err == nil {
+	if encoded, err := s.Crypto.Decrypt(s.HKr, encHeader, nil); err == nil {
 		return MessageEncHeader(encoded).Decode(), false, nil
 	}
-	if encoded, err := s.Crypto.Decrypt(s.state.HKr, encHeader, nil); err == nil {
+	if encoded, err := s.Crypto.Decrypt(s.HKr, encHeader, nil); err == nil {
 		return MessageEncHeader(encoded).Decode(), true, nil
 	}
 	return MessageHeader{}, false, fmt.Errorf("invalid message header")
@@ -299,12 +290,12 @@ func (s *session) DecryptHeaderHE(encHeader []byte) (MessageHeader, bool, error)
 // RatchetDecrypt is called to decrypt messages.
 func (s *session) RatchetDecrypt(m Message, ad []byte) ([]byte, error) {
 	// Is the message one of the skipped?
-	if mk, ok := s.state.MkSkipped.Get(m.Header.DH, uint(m.Header.N)); ok {
+	if mk, ok := s.MkSkipped.Get(m.Header.DH, uint(m.Header.N)); ok {
 		plaintext, err := s.Crypto.Decrypt(mk, m.Ciphertext, append(ad, m.Header.Encode()...))
 		if err != nil {
 			return nil, fmt.Errorf("can't decrypt skipped message: %s", err)
 		}
-		s.state.MkSkipped.DeleteMk(m.Header.DH, uint(m.Header.N))
+		s.MkSkipped.DeleteMk(m.Header.DH, uint(m.Header.N))
 		return plaintext, nil
 	}
 
@@ -340,9 +331,9 @@ func (s *session) RatchetDecrypt(m Message, ad []byte) ([]byte, error) {
 	}
 
 	// Apply changes.
-	s.state.applyChanges(sc, append(skippedKeys1, skippedKeys2...))
+	s.applyChanges(sc, append(skippedKeys1, skippedKeys2...))
 	if isDHStepped {
-		s.state.deleteSkippedKeys(s.state.DHr)
+		s.deleteSkippedKeys(s.DHr)
 	}
 
 	return plaintext, nil
