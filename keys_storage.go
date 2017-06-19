@@ -14,9 +14,10 @@ type KeysStorage interface {
 	// DeletePk ensures there's no message keys under the specified key.
 	DeletePk(k Key)
 
-	// Count returns number of message keys stored under pubKey.
+	// Count returns number of message keys stored under the specified key.
 	Count(k Key) uint
 
+	// All returns all the keys
 	All() map[Key]map[uint]Key
 }
 
@@ -25,6 +26,7 @@ type KeysStorageInMemory struct {
 	keys map[Key]map[uint]Key
 }
 
+// See KeysStorage.
 func (s *KeysStorageInMemory) Get(pubKey Key, msgNum uint) (Key, bool) {
 	if s.keys == nil {
 		return Key{}, false
@@ -40,6 +42,7 @@ func (s *KeysStorageInMemory) Get(pubKey Key, msgNum uint) (Key, bool) {
 	return mk, true
 }
 
+// See KeysStorage.
 func (s *KeysStorageInMemory) Put(pubKey Key, msgNum uint, mk Key) {
 	if s.keys == nil {
 		s.keys = make(map[Key]map[uint]Key)
@@ -50,6 +53,7 @@ func (s *KeysStorageInMemory) Put(pubKey Key, msgNum uint, mk Key) {
 	s.keys[pubKey][msgNum] = mk
 }
 
+// See KeysStorage.
 func (s *KeysStorageInMemory) DeleteMk(pubKey Key, msgNum uint) {
 	if s.keys == nil {
 		return
@@ -66,6 +70,7 @@ func (s *KeysStorageInMemory) DeleteMk(pubKey Key, msgNum uint) {
 	}
 }
 
+// See KeysStorage.
 func (s *KeysStorageInMemory) DeletePk(pubKey Key) {
 	if s.keys == nil {
 		return
@@ -76,6 +81,7 @@ func (s *KeysStorageInMemory) DeletePk(pubKey Key) {
 	delete(s.keys, pubKey)
 }
 
+// See KeysStorage.
 func (s *KeysStorageInMemory) Count(pubKey Key) uint {
 	if s.keys == nil {
 		return 0
@@ -83,6 +89,7 @@ func (s *KeysStorageInMemory) Count(pubKey Key) uint {
 	return uint(len(s.keys[pubKey]))
 }
 
+// See KeysStorage.
 func (s *KeysStorageInMemory) All() map[Key]map[uint]Key {
 	return s.keys
 }

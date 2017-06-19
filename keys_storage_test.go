@@ -68,6 +68,16 @@ func TestKeysStorageInMemory_Flow(t *testing.T) {
 		require.Equal(t, mk, k)
 	})
 
+	t.Run("get all", func(t *testing.T) {
+		// Act.
+		all := ks.All()
+
+		// Assert.
+		require.Len(t, all, 1)
+		require.Len(t, all[pubKey1], 1)
+		require.Equal(t, mk, all[pubKey1][0])
+	})
+
 	t.Run("get non-existent pub key", func(t *testing.T) {
 		// Act.
 		_, ok := ks.Get(pubKey2, 0)
