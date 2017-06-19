@@ -5,25 +5,10 @@ import (
 	"fmt"
 )
 
+// MessageHE contains ciphertext and an encrypted header.
 type MessageHE struct {
 	Header     []byte `json:"header"`
 	Ciphertext []byte `json:"ciphertext"`
-}
-
-type MessageEncHeader []byte
-
-func (mh MessageEncHeader) Decode() (MessageHeader, error) {
-	// n (4 bytes) + pn (4 bytes) + dh (32 bytes)
-	if len(mh) != 40 {
-		return MessageHeader{}, fmt.Errorf("encoded message header must be 40 bytes, %d given", len(mh))
-	}
-	var dh Key
-	copy(dh[:], mh[8:40])
-	return MessageHeader{
-		DH: dh,
-		N:  binary.LittleEndian.Uint32(mh[0:4]),
-		PN: binary.LittleEndian.Uint32(mh[4:8]),
-	}, nil
 }
 
 // Message is a single message exchanged by the parties.
@@ -45,9 +30,27 @@ type MessageHeader struct {
 }
 
 // Encode the header in the binary format.
-func (mh MessageHeader) Encode() []byte {
+func (mh MessageHeader) Encode() MessageEncHeader {
 	buf := make([]byte, 8)
 	binary.LittleEndian.PutUint32(buf[0:4], mh.N)
 	binary.LittleEndian.PutUint32(buf[4:8], mh.PN)
 	return append(buf, mh.DH[:]...)
+}
+
+// MessageEncHeader is a binary-encoded representation of a message header.
+type MessageEncHeader []byte
+
+// Decode message header out of the binary-encoded representation.
+func (mh MessageEncHeader) Decode() (MessageHeader, error) {
+	// n (4 bytes) + pn (4 bytes) + dh (32 bytes)
+	if len(mh) != 40 {
+		return MessageHeader{}, fmt.Errorf("encoded message header must be 40 bytes, %d given", len(mh))
+	}
+	var dh Key
+	copy(dh[:], mh[8:40])
+	return MessageHeader{
+		DH: dh,
+		N:  binary.LittleEndian.Uint32(mh[0:4]),
+		PN: binary.LittleEndian.Uint32(mh[4:8]),
+	}, nil
 }
