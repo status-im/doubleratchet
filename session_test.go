@@ -110,10 +110,8 @@ func TestState_RatchetDecrypt_CommunicationFailedWithNoPublicKey(t *testing.T) {
 func TestState_RatchetDecrypt_CommunicationAliceSends(t *testing.T) {
 	// Arrange.
 	var (
-		bobI, _ = New(sk, bobPair)
-		bob     = bobI.(*session)
-
-		alice, _ = NewWithRemoteKey(sk, bob.DHs.PublicKey())
+		bob, _   = New(sk, bobPair)
+		alice, _ = NewWithRemoteKey(sk, bobPair.PublicKey())
 	)
 
 	for i := 0; i < 10; i++ {
@@ -127,10 +125,8 @@ func TestState_RatchetDecrypt_CommunicationAliceSends(t *testing.T) {
 
 func TestState_RatchetDecrypt_CommunicationBobSends(t *testing.T) {
 	var (
-		bobI, _ = New(sk, bobPair)
-		bob     = bobI.(*session)
-
-		alice, _ = NewWithRemoteKey(sk, bob.DHs.PublicKey())
+		bob, _   = New(sk, bobPair)
+		alice, _ = NewWithRemoteKey(sk, bobPair.PublicKey())
 	)
 
 	for i := 0; i < 10; i++ {
@@ -145,10 +141,8 @@ func TestState_RatchetDecrypt_CommunicationBobSends(t *testing.T) {
 func TestState_RatchetDecrypt_CommunicationPingPong(t *testing.T) {
 	// Arrange.
 	var (
-		bobI, _ = New(sk, bobPair)
-		bob     = bobI.(*session)
-
-		alice, _ = NewWithRemoteKey(sk, bob.DHs.PublicKey())
+		bob, _   = New(sk, bobPair)
+		alice, _ = NewWithRemoteKey(sk, bobPair.PublicKey())
 	)
 
 	for i := 0; i < 10; i++ {

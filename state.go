@@ -56,25 +56,22 @@ func newState(sharedKey Key, opts ...option) (state, error) {
 	if sharedKey == [32]byte{} {
 		return state{}, fmt.Errorf("sharedKey mustn't be empty")
 	}
-	c := DefaultCrypto{}
-	dhs, err := c.GenerateDH()
-	if err != nil {
-		return state{}, fmt.Errorf("failed to generate dh pair: %s", err)
-	}
-
-	s := state{
-		Crypto: c,
-		DHs:    dhs,
-		RootCh: kdfRootChain{CK: sharedKey, Crypto: c},
-		// Populate CKs and CKr with sharedKey as per specification so that both
-		// parties could send and receive messages from the very beginning.
-		SendCh:     kdfChain{CK: sharedKey, Crypto: c},
-		RecvCh:     kdfChain{CK: sharedKey, Crypto: c},
-		MkSkipped:  &KeysStorageInMemory{},
-		MaxSkip:    1000,
-		MaxKeep:    100,
-		DeleteKeys: make(map[uint]Key),
-	}
+	var (
+		c = DefaultCrypto{}
+		s = state{
+			DHs:    dhPair{},
+			Crypto: c,
+			RootCh: kdfRootChain{CK: sharedKey, Crypto: c},
+			// Populate CKs and CKr with sharedKey as per specification so that both
+			// parties could send and receive messages from the very beginning.
+			SendCh:     kdfChain{CK: sharedKey, Crypto: c},
+			RecvCh:     kdfChain{CK: sharedKey, Crypto: c},
+			MkSkipped:  &KeysStorageInMemory{},
+			MaxSkip:    1000,
+			MaxKeep:    100,
+			DeleteKeys: make(map[uint]Key),
+		}
+	)
 
 	for i := range opts {
 		if err := opts[i](&s); err != nil {

@@ -32,6 +32,10 @@ func NewWithRemoteKey(sharedKey, remoteKey Key, opts ...option) (Session, error)
 	if err != nil {
 		return nil, err
 	}
+	state.DHs, err = state.Crypto.GenerateDH()
+	if err != nil {
+		return nil, fmt.Errorf("can't generate key pair: %s", err)
+	}
 	state.DHr = remoteKey
 	// FIXME: Where the header key goes?
 	state.SendCh, _ = state.RootCh.step(state.Crypto.DH(state.DHs, state.DHr))

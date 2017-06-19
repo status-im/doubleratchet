@@ -38,31 +38,11 @@ func (s *sessionHE) RatchetEncryptHE(plaintext, ad []byte) MessageHE {
 
 func (s *sessionHE) RatchetDecryptHE(m MessageHE, ad []byte) ([]byte, error) {
 	// Is the message one of the skipped?
-	for hk, keys := range s.MkSkipped.All() {
-		for n, mk := range keys {
-			hEnc, err := s.Crypto.Decrypt(hk, m.Header, nil)
-			if err != nil {
-				continue
-			}
-			h, err := MessageEncHeader(hEnc).Decode()
-			if err != nil {
-				// FIXME: Log fail here instead of return.
-				return nil, fmt.Errorf("can't decode header %s for skipped message key under (%s, %d)", hEnc, hk, n)
-			}
-			if uint(h.N) != n {
-				continue
-			}
-
-			plaintext, err := s.Crypto.Decrypt(mk, m.Ciphertext, append(ad, m.Header...))
-			if err != nil {
-				return nil, fmt.Errorf("can't decrypt skipped message: %s", err)
-			}
-			s.MkSkipped.DeleteMk(hk, n)
-			return plaintext, nil
-		}
+	if plaintext, err := s.trySkippedMessages(m, ad); err != nil || plaintext != nil {
+		return plaintext, err
 	}
 
-	h, step, err := s.DecryptHeader(m.Header)
+	h, step, err := s.decryptHeader(m.Header)
 	if err != nil {
 		return nil, fmt.Errorf("can't decrypt header: %s", err)
 	}
@@ -101,7 +81,7 @@ func (s *sessionHE) RatchetDecryptHE(m MessageHE, ad []byte) ([]byte, error) {
 	return plaintext, nil
 }
 
-func (s *sessionHE) DecryptHeader(encHeader []byte) (MessageHeader, bool, error) {
+func (s *sessionHE) decryptHeader(encHeader []byte) (MessageHeader, bool, error) {
 	if encoded, err := s.Crypto.Decrypt(s.HKr, encHeader, nil); err == nil {
 		h, err := MessageEncHeader(encoded).Decode()
 		return h, false, err
@@ -111,4 +91,30 @@ func (s *sessionHE) DecryptHeader(encHeader []byte) (MessageHeader, bool, error)
 		return h, false, err
 	}
 	return MessageHeader{}, false, fmt.Errorf("invalid message header")
+}
+
+func (s *sessionHE) trySkippedMessages(m MessageHE, ad []byte) ([]byte, error) {
+	for hk, keys := range s.MkSkipped.All() {
+		for n, mk := range keys {
+			hEnc, err := s.Crypto.Decrypt(hk, m.Header, nil)
+			if err != nil {
+				continue
+			}
+			h, err := MessageEncHeader(hEnc).Decode()
+			if err != nil {
+				// FIXME: Log fail here and continue instead of return.
+				return nil, fmt.Errorf("can't decode header %s for skipped message key under (%s, %d)", hEnc, hk, n)
+			}
+			if uint(h.N) != n {
+				continue
+			}
+			plaintext, err := s.Crypto.Decrypt(mk, m.Ciphertext, append(ad, m.Header...))
+			if err != nil {
+				return nil, fmt.Errorf("can't decrypt skipped message: %s", err)
+			}
+			s.MkSkipped.DeleteMk(hk, n)
+			return plaintext, nil
+		}
+	}
+	return nil, nil
 }
