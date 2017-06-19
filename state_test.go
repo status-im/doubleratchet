@@ -51,7 +51,7 @@ func TestNew_BadSharedKey(t *testing.T) {
 func TestNew_WithMaxSkip_OK(t *testing.T) {
 	// Act.
 	var (
-		si, err = New(sk, MaxSkip(100))
+		si, err = New(sk, WithMaxSkip(100))
 		s       = si.(*session)
 	)
 
@@ -62,7 +62,7 @@ func TestNew_WithMaxSkip_OK(t *testing.T) {
 
 func TestNew_WithMaxSkip_Negative(t *testing.T) {
 	// Act.
-	_, err := New(sk, MaxSkip(-10))
+	_, err := New(sk, WithMaxSkip(-10))
 
 	// Assert.
 	require.NotNil(t, err)
@@ -70,7 +70,7 @@ func TestNew_WithMaxSkip_Negative(t *testing.T) {
 
 func TestNew_WithMaxKeep_Negative(t *testing.T) {
 	// Act.
-	_, err := New(sk, MaxKeep(-10))
+	_, err := New(sk, WithMaxKeep(-10))
 
 	// Assert.
 	require.NotNil(t, err)
@@ -183,10 +183,10 @@ func TestState_RatchetDecrypt_CommunicationPingPong(t *testing.T) {
 func TestState_RatchetDecrypt_CommunicationSkippedMessages(t *testing.T) {
 	// Arrange.
 	var (
-		bobI, _ = New(sk, MaxSkip(1))
+		bobI, _ = New(sk, WithMaxSkip(1))
 		bob     = bobI.(*session)
 
-		aliceI, _ = New(sk, MaxSkip(1), RemoteKey(bob.DHs.PublicKey()))
+		aliceI, _ = New(sk, WithMaxSkip(1), RemoteKey(bob.DHs.PublicKey()))
 		alice     = aliceI.(*session)
 	)
 
@@ -236,8 +236,8 @@ func TestState_RatchetDecrypt_CommunicationSkippedMessages(t *testing.T) {
 func TestState_SkippedKeysDeletion(t *testing.T) {
 	// Arrange.
 	var (
-		bob, _   = New(sk, MaxKeep(2))
-		alice, _ = New(sk, RemoteKey(bob.PublicKey()), MaxKeep(2))
+		bob, _   = New(sk, WithMaxKeep(2))
+		alice, _ = New(sk, RemoteKey(bob.PublicKey()), WithMaxKeep(2))
 		h        = SessionTestHelper{t, alice, bob}
 	)
 

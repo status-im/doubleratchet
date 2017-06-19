@@ -61,7 +61,7 @@ type state struct {
 	MkSkipped KeysStorage
 
 	// The maximum number of message keys that can be skipped in a single chain.
-	// MaxSkip should be set high enough to tolerate routine lost or delayed messages,
+	// WithMaxSkip should be set high enough to tolerate routine lost or delayed messages,
 	// but low enough that a malicious sender can't trigger excessive recipient computation.
 	MaxSkip uint
 
@@ -203,34 +203,6 @@ func NewWithRK(sharedKey, remoteKey Key, opts ...option) (Session, error) {
 	s.(*session).state.DHr = remoteKey
 	return s, nil
 }
-
-// option is a constructor option.
-type option func(*state) error
-
-// MaxSkip specifies the maximum number of skipped message in a single chain.
-func MaxSkip(n int) option {
-	return func(s *state) error {
-		if n < 0 {
-			return fmt.Errorf("n must be non-negative")
-		}
-		s.MaxSkip = uint(n)
-		return nil
-	}
-}
-
-// MaxKeep specifies the maximum number of ratchet steps before a message is deleted.
-func MaxKeep(n int) option {
-	return func(s *state) error {
-		if n < 0 {
-			return fmt.Errorf("n must be non-negative")
-		}
-		s.MaxKeep = uint(n)
-		return nil
-	}
-}
-
-// TODO: WithKeysStorage.
-// TODO: WithCrypto.
 
 // RatchetEncrypt performs a symmetric-key ratchet step, then encrypts the message with
 // the resulting message key.
