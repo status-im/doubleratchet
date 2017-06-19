@@ -16,8 +16,6 @@ type Session interface {
 
 	// RatchetDecrypt is called to AEAD-decrypt messages.
 	RatchetDecrypt(m Message, associatedData []byte) ([]byte, error)
-
-	PublicKeyer
 }
 
 // SessionHE is the session of the party involved the Double Ratchet Algorithm with encrypted header modification.
@@ -28,13 +26,6 @@ type SessionHE interface {
 
 	// RatchetDecryptHE is called to AEAD-decrypt header-encrypted messages.
 	RatchetDecryptHE(m MessageHE, associatedData []byte) ([]byte, error)
-
-	PublicKeyer
-}
-
-type PublicKeyer interface {
-	// PublicKey returns the session's ratchet public key.
-	PublicKey() Key
 }
 
 // The double ratchet state.
@@ -355,8 +346,4 @@ func (s *session) RatchetDecrypt(m Message, ad []byte) ([]byte, error) {
 	}
 
 	return plaintext, nil
-}
-
-func (s *session) PublicKey() Key {
-	return s.state.DHs.PublicKey()
 }
