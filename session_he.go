@@ -16,7 +16,34 @@ type sessionHE struct {
 	state
 }
 
-// TODO: New.
+// NewHE creates session with the shared keys.
+func NewHE(sharedKey, sharedHka, sharedNhkb Key, keyPair DHPair, opts ...option) (SessionHE, error) {
+	state, err := newState(sharedKey, opts...)
+	if err != nil {
+		return nil, err
+	}
+	state.DHs = keyPair
+	state.NHKs = sharedNhkb
+	state.NHKr = sharedHka
+	return &sessionHE{state}, nil
+}
+
+// NewHEWithRemoteKey creates session with the shared keys and public key of the other party.
+func NewHEWithRemoteKey(sharedKey, sharedHka, sharedNhkb, remoteKey Key, opts ...option) (SessionHE, error) {
+	state, err := newState(sharedKey, opts...)
+	if err != nil {
+		return nil, err
+	}
+	state.DHs, err = state.Crypto.GenerateDH()
+	if err != nil {
+		return nil, fmt.Errorf("can't generate key pair: %s", err)
+	}
+	state.DHr = remoteKey
+	state.SendCh, state.NHKs = state.RootCh.step(state.Crypto.DH(state.DHs, state.DHr))
+	state.HKs = sharedHka
+	state.NHKr = sharedNhkb
+	return &sessionHE{state}, nil
+}
 
 // RatchetEncryptHE performs a symmetric-key ratchet step, then encrypts the header with
 // the corresponding header key and the message with resulting message key.
