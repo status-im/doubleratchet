@@ -81,21 +81,22 @@ func TestSessionHE_RatchetDecrypt_CommunicationAliceSends(t *testing.T) {
 	}
 }
 
-//func TestSessionHE_RatchetDecrypt_CommunicationBobSends(t *testing.T) {
-//	var (
-//		bob, _   = New(sk, bobPair)
-//		alice, _ = NewWithRemoteKey(sk, bobPair.PublicKey())
-//	)
-//
-//	for i := 0; i < 10; i++ {
-//		pt := fmt.Sprintf("msg%d", i)
-//		t.Run(pt, func(t *testing.T) {
-//			h := SessionTestHelper{t, alice, bob}
-//			h.BobToAlice(pt, []byte("bob associated data"))
-//		})
-//	}
-//}
-//
+func TestSessionHE_RatchetDecrypt_CommunicationBobSends(t *testing.T) {
+	// Arrange.
+	var (
+		bob, _   = NewHE(sk, sharedHka, sharedNhkb, bobPair)
+		alice, _ = NewHEWithRemoteKey(sk, sharedHka, sharedNhkb, bobPair.PublicKey())
+	)
+
+	for i := 0; i < 10; i++ {
+		pt := fmt.Sprintf("msg%d", i)
+		t.Run(pt, func(t *testing.T) {
+			h := SessionTestHelperHE{t, alice, bob}
+			h.BobToAlice(pt, []byte("bob associated data"))
+		})
+	}
+}
+
 //func TestSessionHE_RatchetDecrypt_CommunicationPingPong(t *testing.T) {
 //	// Arrange.
 //	var (
