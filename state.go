@@ -37,39 +37,6 @@ type PublicKeyer interface {
 	PublicKey() Key
 }
 
-type rootChain struct {
-	Crypto Crypto // TODO: Only KdfRK is used.
-
-	// 32-byte chain key.
-	CK Key
-}
-
-func (c rootChain) Step(kdfInput Key) (ch chain, nhk Key) {
-	ch = chain{
-		Crypto: c.Crypto,
-	}
-	c.CK, ch.CK, nhk = c.Crypto.KdfRK(c.CK, kdfInput)
-	return ch, nhk
-}
-
-type chain struct {
-	Crypto Crypto // TODO: Only KdfCK is used.
-
-	// 32-byte chain key.
-	CK Key
-
-	// Messages count in the chain.
-	N uint32
-}
-
-// Step performs chain step and returns message key.
-func (c chain) Step() Key {
-	var mk Key
-	c.CK, mk = c.Crypto.KdfCK(c.CK)
-	c.N = 0
-	return mk
-}
-
 // The double ratchet state.
 type state struct {
 	Crypto Crypto
