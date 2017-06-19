@@ -48,35 +48,7 @@ func TestNew_BadSharedKey(t *testing.T) {
 	require.NotNil(t, err)
 }
 
-func TestNew_WithMaxSkip_OK(t *testing.T) {
-	// Act.
-	var (
-		si, err = New(sk, WithMaxSkip(100))
-		s       = si.(*session)
-	)
-
-	// Assert.
-	require.Nil(t, err)
-	require.EqualValues(t, 100, s.MaxSkip)
-}
-
-func TestNew_WithMaxSkip_Negative(t *testing.T) {
-	// Act.
-	_, err := New(sk, WithMaxSkip(-10))
-
-	// Assert.
-	require.NotNil(t, err)
-}
-
-func TestNew_WithMaxKeep_Negative(t *testing.T) {
-	// Act.
-	_, err := New(sk, WithMaxKeep(-10))
-
-	// Assert.
-	require.NotNil(t, err)
-}
-
-func TestNew_WithRemoteKey(t *testing.T) {
+func TestNewWithRK(t *testing.T) {
 	// Act.
 	var (
 		si, err = NewWithRK(sk, bobPair.PublicKey())
