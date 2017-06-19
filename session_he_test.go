@@ -45,46 +45,25 @@ func TestNewHEWithRemoteKey(t *testing.T) {
 	require.NotEqual(t, sk, s.SendCh.CK)
 }
 
-//func TestState_RatchetEncryptDecrypt_Basic(t *testing.T) {
-//	// Arrange.
-//	var (
-//		si, err = NewWithRemoteKey(sk, bobPair.PublicKey())
-//		s       = si.(*session)
-//		oldCKs  = s.SendCh.CK
-//	)
-//
-//	// Act.
-//	m := si.RatchetEncrypt([]byte("1337"), nil)
-//
-//	// Assert.
-//	require.Nil(t, err)
-//	require.NotEqual(t, oldCKs, s.SendCh.CK)
-//	require.EqualValues(t, 1, s.SendCh.N)
-//	require.Equal(t, MessageHeader{
-//		DH: s.DHs.PublicKey(),
-//		N:  0,
-//		PN: 0,
-//	}, m.Header)
-//	require.NotEmpty(t, m.Ciphertext)
-//}
-//
-//func TestState_RatchetDecrypt_CommunicationFailedWithNoPublicKey(t *testing.T) {
-//	// Arrange.
-//	var (
-//		bob, _   = New(sk, bobPair)
-//		alice, _ = New(sk, alicePair)
-//	)
-//
-//	// Act.
-//	var (
-//		m      = alice.RatchetEncrypt([]byte("something important"), nil)
-//		_, err = bob.RatchetDecrypt(m, nil)
-//	)
-//
-//	// Assert.
-//	require.NotNil(t, err) // Invalid signature.
-//}
-//
+func TestState_RatchetEncrypt_Basic(t *testing.T) {
+	// Arrange.
+	var (
+		si, err = NewHEWithRemoteKey(sk, sharedHka, sharedNhkb, bobPair.PublicKey())
+		s       = si.(*sessionHE)
+		oldCKs  = s.SendCh.CK
+	)
+
+	// Act.
+	m := si.RatchetEncryptHE([]byte("1337"), nil)
+
+	// Assert.
+	require.Nil(t, err)
+	require.NotEqual(t, oldCKs, s.SendCh.CK)
+	require.EqualValues(t, 1, s.SendCh.N)
+	require.NotEmpty(t, m.Header)
+	require.NotEmpty(t, m.Ciphertext)
+}
+
 //func TestState_RatchetDecrypt_CommunicationAliceSends(t *testing.T) {
 //	// Arrange.
 //	var (

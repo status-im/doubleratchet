@@ -36,7 +36,7 @@ func TestNewWithRemoteKey(t *testing.T) {
 	require.NotEqual(t, sk, s.SendCh.CK)
 }
 
-func TestState_RatchetEncryptDecrypt_Basic(t *testing.T) {
+func TestSession_RatchetEncrypt_Basic(t *testing.T) {
 	// Arrange.
 	var (
 		si, err = NewWithRemoteKey(sk, bobPair.PublicKey())
@@ -59,7 +59,7 @@ func TestState_RatchetEncryptDecrypt_Basic(t *testing.T) {
 	require.NotEmpty(t, m.Ciphertext)
 }
 
-func TestState_RatchetDecrypt_CommunicationFailedWithNoPublicKey(t *testing.T) {
+func TestSession_RatchetDecrypt_CommunicationFailedWithNoPublicKey(t *testing.T) {
 	// Arrange.
 	var (
 		bob, _   = New(sk, bobPair)
@@ -76,7 +76,7 @@ func TestState_RatchetDecrypt_CommunicationFailedWithNoPublicKey(t *testing.T) {
 	require.NotNil(t, err) // Invalid signature.
 }
 
-func TestState_RatchetDecrypt_CommunicationAliceSends(t *testing.T) {
+func TestSession_RatchetDecrypt_CommunicationAliceSends(t *testing.T) {
 	// Arrange.
 	var (
 		bob, _   = New(sk, bobPair)
@@ -92,7 +92,7 @@ func TestState_RatchetDecrypt_CommunicationAliceSends(t *testing.T) {
 	}
 }
 
-func TestState_RatchetDecrypt_CommunicationBobSends(t *testing.T) {
+func TestSession_RatchetDecrypt_CommunicationBobSends(t *testing.T) {
 	var (
 		bob, _   = New(sk, bobPair)
 		alice, _ = NewWithRemoteKey(sk, bobPair.PublicKey())
@@ -107,7 +107,7 @@ func TestState_RatchetDecrypt_CommunicationBobSends(t *testing.T) {
 	}
 }
 
-func TestState_RatchetDecrypt_CommunicationPingPong(t *testing.T) {
+func TestSession_RatchetDecrypt_CommunicationPingPong(t *testing.T) {
 	// Arrange.
 	var (
 		bob, _   = New(sk, bobPair)
@@ -125,7 +125,7 @@ func TestState_RatchetDecrypt_CommunicationPingPong(t *testing.T) {
 	}
 }
 
-func TestState_RatchetDecrypt_CommunicationSkippedMessages(t *testing.T) {
+func TestSession_RatchetDecrypt_CommunicationSkippedMessages(t *testing.T) {
 	// Arrange.
 	var (
 		bobI, _ = New(sk, bobPair, WithMaxSkip(1))
@@ -178,7 +178,7 @@ func TestState_RatchetDecrypt_CommunicationSkippedMessages(t *testing.T) {
 	})
 }
 
-func TestState_SkippedKeysDeletion(t *testing.T) {
+func TestSession_SkippedKeysDeletion(t *testing.T) {
 	// Arrange.
 	var (
 		bob, _   = New(sk, bobPair, WithMaxKeep(2))
