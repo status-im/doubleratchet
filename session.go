@@ -35,7 +35,7 @@ func NewWithRK(sharedKey, remoteKey Key, opts ...option) (Session, error) {
 	s := sI.(*session)
 	s.DHr = remoteKey
 	// FIXME: Where the header key goes?
-	s.SendCh, _ = s.RootCh.Step(s.Crypto.DH(s.DHs, s.DHr))
+	s.SendCh, _ = s.RootCh.step(s.Crypto.DH(s.DHs, s.DHr))
 	return s, nil
 }
 
@@ -49,7 +49,7 @@ func (s *session) RatchetEncrypt(plaintext, ad []byte) Message {
 			N:  s.SendCh.N,
 			PN: s.PN,
 		}
-		mk = s.SendCh.Step()
+		mk = s.SendCh.step()
 	)
 	adBuf = append(adBuf, ad...)
 	ct := s.Crypto.Encrypt(mk, plaintext, append(adBuf, h.Encode()...))
@@ -93,7 +93,7 @@ func (s *session) RatchetDecrypt(m Message, ad []byte) ([]byte, error) {
 	if skippedKeys2, err = sc.skipMessageKeys(sc.DHr, uint(m.Header.N)); err != nil {
 		return nil, fmt.Errorf("can't skip current chain message keys: %s", err)
 	}
-	mk := sc.RecvCh.Step()
+	mk := sc.RecvCh.step()
 	plaintext, err := s.Crypto.Decrypt(mk, m.Ciphertext, append(ad, m.Header.Encode()...))
 	if err != nil {
 		return nil, fmt.Errorf("can't decrypt: %s", err)

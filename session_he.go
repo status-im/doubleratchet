@@ -27,7 +27,7 @@ func (s *sessionHE) RatchetEncryptHE(plaintext, ad []byte) MessageHE {
 			N:  s.SendCh.N,
 			PN: s.PN,
 		}
-		mk   = s.SendCh.Step()
+		mk   = s.SendCh.step()
 		hEnc = s.Crypto.Encrypt(s.HKs, h.Encode(), nil)
 	)
 	return MessageHE{
@@ -87,7 +87,7 @@ func (s *sessionHE) RatchetDecryptHE(m MessageHE, ad []byte) ([]byte, error) {
 	if skippedKeys2, err = sc.skipMessageKeys(s.HKr, uint(h.N)); err != nil {
 		return nil, fmt.Errorf("can't skip current chain message keys: %s", err)
 	}
-	mk := sc.RecvCh.Step()
+	mk := sc.RecvCh.step()
 	plaintext, err := s.Crypto.Decrypt(mk, m.Ciphertext, append(ad, m.Header...))
 	if err != nil {
 		return nil, fmt.Errorf("can't decrypt: %s", err)

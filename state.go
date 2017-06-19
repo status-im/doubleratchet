@@ -19,10 +19,10 @@ type state struct {
 	DHs DHPair
 
 	// Symmetric ratchet root chain.
-	RootCh rootChain
+	RootCh kdfRootChain
 
 	// Symmetric ratchet sending and receiving chains.
-	SendCh, RecvCh chain
+	SendCh, RecvCh kdfChain
 
 	// Number of messages in previous sending chain.
 	PN uint32
@@ -65,11 +65,11 @@ func newState(sharedKey Key, opts ...option) (state, error) {
 	s := state{
 		Crypto: c,
 		DHs:    dhs,
-		RootCh: rootChain{CK: sharedKey, Crypto: c},
+		RootCh: kdfRootChain{CK: sharedKey, Crypto: c},
 		// Populate CKs and CKr with sharedKey as per specification so that both
 		// parties could send and receive messages from the very beginning.
-		SendCh:     chain{CK: sharedKey, Crypto: c},
-		RecvCh:     chain{CK: sharedKey, Crypto: c},
+		SendCh:     kdfChain{CK: sharedKey, Crypto: c},
+		RecvCh:     kdfChain{CK: sharedKey, Crypto: c},
 		MkSkipped:  &KeysStorageInMemory{},
 		MaxSkip:    1000,
 		MaxKeep:    100,
@@ -91,13 +91,13 @@ func (s *state) dhRatchet(m MessageHeader) error {
 	s.DHr = m.DH
 	s.HKs = s.NHKs
 	s.HKr = s.NHKr
-	s.RecvCh, s.NHKr = s.RootCh.Step(s.Crypto.DH(s.DHs, s.DHr))
+	s.RecvCh, s.NHKr = s.RootCh.step(s.Crypto.DH(s.DHs, s.DHr))
 	var err error
 	s.DHs, err = s.Crypto.GenerateDH()
 	if err != nil {
 		return fmt.Errorf("failed to generate dh pair: %s", err)
 	}
-	s.SendCh, s.NHKs = s.RootCh.Step(s.Crypto.DH(s.DHs, s.DHr))
+	s.SendCh, s.NHKs = s.RootCh.step(s.Crypto.DH(s.DHs, s.DHr))
 	return nil
 }
 
@@ -118,7 +118,7 @@ func (s *state) skipMessageKeys(key Key, until uint) ([]skippedKey, error) {
 	}
 	skipped := []skippedKey{}
 	for uint(s.RecvCh.N) < until {
-		mk := s.RecvCh.Step()
+		mk := s.RecvCh.step()
 		skipped = append(skipped, skippedKey{
 			key: key,
 			nr:  uint(s.RecvCh.N - 1),

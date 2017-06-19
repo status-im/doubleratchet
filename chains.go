@@ -11,22 +11,7 @@ type KDFer interface {
 	KdfCK(ck Key) (chainKey, msgKey Key)
 }
 
-type rootChain struct {
-	Crypto KDFer
-
-	// 32-byte chain key.
-	CK Key
-}
-
-func (c *rootChain) Step(kdfInput Key) (ch chain, nhk Key) {
-	ch = chain{
-		Crypto: c.Crypto,
-	}
-	c.CK, ch.CK, nhk = c.Crypto.KdfRK(c.CK, kdfInput)
-	return ch, nhk
-}
-
-type chain struct {
+type kdfChain struct {
 	Crypto KDFer
 
 	// 32-byte chain key.
@@ -36,10 +21,26 @@ type chain struct {
 	N uint32
 }
 
-// Step performs chain step and returns message key.
-func (c *chain) Step() Key {
+// step performs symmetric ratchet step and returns a new message key.
+func (c *kdfChain) step() Key {
 	var mk Key
 	c.CK, mk = c.Crypto.KdfCK(c.CK)
 	c.N++
 	return mk
+}
+
+type kdfRootChain struct {
+	Crypto KDFer
+
+	// 32-byte kdfChain key.
+	CK Key
+}
+
+// step performs symmetric ratchet step and returns a new chain and new header key.
+func (c *kdfRootChain) step(kdfInput Key) (ch kdfChain, nhk Key) {
+	ch = kdfChain{
+		Crypto: c.Crypto,
+	}
+	c.CK, ch.CK, nhk = c.Crypto.KdfRK(c.CK, kdfInput)
+	return ch, nhk
 }
