@@ -2,6 +2,7 @@ package doubleratchet
 
 import (
 	"encoding/binary"
+	"fmt"
 )
 
 type MessageHE struct {
@@ -9,17 +10,20 @@ type MessageHE struct {
 	Ciphertext []byte `json:"ciphertext"`
 }
 
-// n (4 bytes) + pn (4 bytes) + dh (32 bytes)
-type MessageEncHeader [40]byte
+type MessageEncHeader []byte
 
-func (mh MessageEncHeader) Decode() MessageHeader {
+func (mh MessageEncHeader) Decode() (MessageHeader, error) {
+	// n (4 bytes) + pn (4 bytes) + dh (32 bytes)
+	if len(mh) != 40 {
+		return MessageHeader{}, fmt.Errorf("encoded message header must be 40 bytes, %d given", len(mh))
+	}
 	var dh Key
-	copy(dh[:], mh[8:32])
+	copy(dh[:], mh[8:40])
 	return MessageHeader{
 		DH: dh,
 		N:  binary.LittleEndian.Uint32(mh[0:4]),
-		PN: binary.LittleEndian.Uint32(mh[4:4]),
-	}
+		PN: binary.LittleEndian.Uint32(mh[4:8]),
+	}, nil
 }
 
 // Message is a single message exchanged by the parties.
@@ -42,8 +46,8 @@ type MessageHeader struct {
 
 // Encode the header in the binary format.
 func (mh MessageHeader) Encode() []byte {
-	buf := make([]byte, 8+len(mh.DH))
+	buf := make([]byte, 8)
 	binary.LittleEndian.PutUint32(buf[0:4], mh.N)
-	binary.LittleEndian.PutUint32(buf[4:4], mh.PN)
-	return append(buf, mh.DH...)
+	binary.LittleEndian.PutUint32(buf[4:8], mh.PN)
+	return append(buf, mh.DH[:]...)
 }

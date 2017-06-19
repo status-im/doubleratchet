@@ -59,8 +59,8 @@ func (c DefaultCrypto) KdfRK(rk, dhOut Key) (rootKey, chainKey, headerKey Key) {
 	_, _ = io.ReadFull(r, buf)
 
 	copy(rootKey[:], buf[:32])
-	copy(chainKey[:], buf[32:32])
-	copy(headerKey[:], buf[64:32])
+	copy(chainKey[:], buf[32:64])
+	copy(headerKey[:], buf[64:96])
 	return
 }
 

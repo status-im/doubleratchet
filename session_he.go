@@ -16,6 +16,8 @@ type sessionHE struct {
 	state
 }
 
+// TODO: New.
+
 // RatchetEncryptHE performs a symmetric-key ratchet step, then encrypts the header with
 // the corresponding header key and the message with resulting message key.
 func (s *sessionHE) RatchetEncryptHE(plaintext, ad []byte) MessageHE {
@@ -38,18 +40,25 @@ func (s *sessionHE) RatchetDecryptHE(m MessageHE, ad []byte) ([]byte, error) {
 	// Is the message one of the skipped?
 	for hk, keys := range s.MkSkipped.All() {
 		for n, mk := range keys {
-			var (
-				hEnc, err = s.Crypto.Decrypt(hk, m.Header, nil)
-				h         = MessageEncHeader(hEnc).Decode()
-			)
-			if err == nil && uint(h.N) == n {
-				plaintext, err := s.Crypto.Decrypt(mk, m.Ciphertext, append(ad, m.Header...))
-				if err != nil {
-					return nil, fmt.Errorf("can't decrypt skipped message: %s", err)
-				}
-				s.MkSkipped.DeleteMk(hk, n)
-				return plaintext, nil
+			hEnc, err := s.Crypto.Decrypt(hk, m.Header, nil)
+			if err != nil {
+				continue
 			}
+			h, err := MessageEncHeader(hEnc).Decode()
+			if err != nil {
+				// FIXME: Log fail here instead of return.
+				return nil, fmt.Errorf("can't decode header %s for skipped message key under (%s, %d)", hEnc, hk, n)
+			}
+			if uint(h.N) != n {
+				continue
+			}
+
+			plaintext, err := s.Crypto.Decrypt(mk, m.Ciphertext, append(ad, m.Header...))
+			if err != nil {
+				return nil, fmt.Errorf("can't decrypt skipped message: %s", err)
+			}
+			s.MkSkipped.DeleteMk(hk, n)
+			return plaintext, nil
 		}
 	}
 
@@ -94,10 +103,12 @@ func (s *sessionHE) RatchetDecryptHE(m MessageHE, ad []byte) ([]byte, error) {
 
 func (s *sessionHE) DecryptHeader(encHeader []byte) (MessageHeader, bool, error) {
 	if encoded, err := s.Crypto.Decrypt(s.HKr, encHeader, nil); err == nil {
-		return MessageEncHeader(encoded).Decode(), false, nil
+		h, err := MessageEncHeader(encoded).Decode()
+		return h, false, err
 	}
 	if encoded, err := s.Crypto.Decrypt(s.HKr, encHeader, nil); err == nil {
-		return MessageEncHeader(encoded).Decode(), true, nil
+		h, err := MessageEncHeader(encoded).Decode()
+		return h, false, err
 	}
 	return MessageHeader{}, false, fmt.Errorf("invalid message header")
 }

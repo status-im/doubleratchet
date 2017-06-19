@@ -28,11 +28,14 @@ func New(sharedKey Key, opts ...option) (Session, error) {
 
 // NewWithRK creates session with the shared key and public key of the other party.
 func NewWithRK(sharedKey, remoteKey Key, opts ...option) (Session, error) {
-	s, err := New(sharedKey, opts...)
+	sI, err := New(sharedKey, opts...)
 	if err != nil {
 		return nil, err
 	}
-	s.(*session).state.DHr = remoteKey
+	s := sI.(*session)
+	s.DHr = remoteKey
+	// FIXME: Where the header key goes?
+	s.SendCh, _ = s.RootCh.Step(s.Crypto.DH(s.DHs, s.DHr))
 	return s, nil
 }
 
@@ -40,14 +43,16 @@ func NewWithRK(sharedKey, remoteKey Key, opts ...option) (Session, error) {
 // the resulting message key.
 func (s *session) RatchetEncrypt(plaintext, ad []byte) Message {
 	var (
-		h = MessageHeader{
+		adBuf = []byte{}
+		h     = MessageHeader{
 			DH: s.DHs.PublicKey(),
 			N:  s.SendCh.N,
 			PN: s.PN,
 		}
 		mk = s.SendCh.Step()
-		ct = s.Crypto.Encrypt(mk, plaintext, append(ad, h.Encode()...))
 	)
+	adBuf = append(adBuf, ad...)
+	ct := s.Crypto.Encrypt(mk, plaintext, append(adBuf, h.Encode()...))
 	return Message{h, ct}
 }
 

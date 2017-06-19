@@ -18,7 +18,7 @@ type rootChain struct {
 	CK Key
 }
 
-func (c rootChain) Step(kdfInput Key) (ch chain, nhk Key) {
+func (c *rootChain) Step(kdfInput Key) (ch chain, nhk Key) {
 	ch = chain{
 		Crypto: c.Crypto,
 	}
@@ -37,9 +37,9 @@ type chain struct {
 }
 
 // Step performs chain step and returns message key.
-func (c chain) Step() Key {
+func (c *chain) Step() Key {
 	var mk Key
 	c.CK, mk = c.Crypto.KdfCK(c.CK)
-	c.N = 0
+	c.N++
 	return mk
 }

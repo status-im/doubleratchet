@@ -24,14 +24,14 @@ func TestNew_Basic(t *testing.T) {
 	// Assert.
 	require.Nil(t, err)
 
-	require.Equal(t, sk, s.RK)
-	require.Equal(t, sk, s.CKs)
-	require.Equal(t, sk, s.CKr)
+	require.Equal(t, sk, s.RootCh.CK)
+	require.Equal(t, sk, s.SendCh.CK)
+	require.Equal(t, sk, s.RecvCh.CK)
 	require.Equal(t, Key{}, s.DHr)
 	require.NotEqual(t, Key{}, s.DHs.PrivateKey())
 	require.NotEqual(t, Key{}, s.DHs.PublicKey())
-	require.Empty(t, s.Ns)
-	require.Empty(t, s.Nr)
+	require.Empty(t, s.SendCh.N)
+	require.Empty(t, s.RecvCh.N)
 	require.Empty(t, s.PN)
 	require.NotNil(t, s.MkSkipped)
 	require.NotEmpty(t, s.MaxSkip)
@@ -79,24 +79,24 @@ func TestNew_WithMaxKeep_Negative(t *testing.T) {
 func TestNew_WithRemoteKey(t *testing.T) {
 	// Act.
 	var (
-		si, err = New(sk, RemoteKey(bobPair.PublicKey()))
+		si, err = NewWithRK(sk, bobPair.PublicKey())
 		s       = si.(*session)
 	)
 
 	// Assert.
 	require.Nil(t, err)
 	require.Equal(t, bobPair.PublicKey(), s.DHr)
-	require.NotEqual(t, Key{}, s.RK)
-	require.NotEqual(t, sk, s.RK)
-	require.NotEqual(t, Key{}, s.CKs)
+	require.NotEqual(t, Key{}, s.RootCh.CK)
+	require.NotEqual(t, sk, s.RootCh.CK)
+	require.NotEqual(t, Key{}, s.SendCh.CK)
 }
 
 func TestState_RatchetEncryptDecrypt_Basic(t *testing.T) {
 	// Arrange.
 	var (
-		si, err = New(sk, RemoteKey(bobPair.PublicKey()))
+		si, err = NewWithRK(sk, bobPair.PublicKey())
 		s       = si.(*session)
-		oldCKs  = s.CKs
+		oldCKs  = s.SendCh.CK
 	)
 
 	// Act.
@@ -104,8 +104,8 @@ func TestState_RatchetEncryptDecrypt_Basic(t *testing.T) {
 
 	// Assert.
 	require.Nil(t, err)
-	require.NotEqual(t, oldCKs, s.CKs)
-	require.EqualValues(t, 1, s.Ns)
+	require.NotEqual(t, oldCKs, s.SendCh.CK)
+	require.EqualValues(t, 1, s.SendCh.N)
 	require.Equal(t, MessageHeader{
 		DH: s.DHs.PublicKey(),
 		N:  0,
@@ -134,8 +134,10 @@ func TestState_RatchetDecrypt_CommunicationFailedWithNoPublicKey(t *testing.T) {
 func TestState_RatchetDecrypt_CommunicationAliceSends(t *testing.T) {
 	// Arrange.
 	var (
-		bob, _   = New(sk)
-		alice, _ = New(sk, RemoteKey(bob.PublicKey()))
+		bobI, _ = New(sk)
+		bob     = bobI.(*session)
+
+		alice, _ = NewWithRK(sk, bob.DHs.PublicKey())
 	)
 
 	for i := 0; i < 10; i++ {
@@ -149,8 +151,10 @@ func TestState_RatchetDecrypt_CommunicationAliceSends(t *testing.T) {
 
 func TestState_RatchetDecrypt_CommunicationBobSends(t *testing.T) {
 	var (
-		bob, _   = New(sk)
-		alice, _ = New(sk, RemoteKey(bob.PublicKey()))
+		bobI, _ = New(sk)
+		bob     = bobI.(*session)
+
+		alice, _ = NewWithRK(sk, bob.DHs.PublicKey())
 	)
 
 	for i := 0; i < 10; i++ {
@@ -165,8 +169,10 @@ func TestState_RatchetDecrypt_CommunicationBobSends(t *testing.T) {
 func TestState_RatchetDecrypt_CommunicationPingPong(t *testing.T) {
 	// Arrange.
 	var (
-		bob, _   = New(sk)
-		alice, _ = New(sk, RemoteKey(bob.PublicKey()))
+		bobI, _ = New(sk)
+		bob     = bobI.(*session)
+
+		alice, _ = NewWithRK(sk, bob.DHs.PublicKey())
 	)
 
 	for i := 0; i < 10; i++ {
@@ -186,7 +192,7 @@ func TestState_RatchetDecrypt_CommunicationSkippedMessages(t *testing.T) {
 		bobI, _ = New(sk, WithMaxSkip(1))
 		bob     = bobI.(*session)
 
-		aliceI, _ = New(sk, WithMaxSkip(1), RemoteKey(bob.DHs.PublicKey()))
+		aliceI, _ = NewWithRK(sk, bob.DHs.PublicKey(), WithMaxSkip(1))
 		alice     = aliceI.(*session)
 	)
 
@@ -236,8 +242,10 @@ func TestState_RatchetDecrypt_CommunicationSkippedMessages(t *testing.T) {
 func TestState_SkippedKeysDeletion(t *testing.T) {
 	// Arrange.
 	var (
-		bob, _   = New(sk, WithMaxKeep(2))
-		alice, _ = New(sk, RemoteKey(bob.PublicKey()), WithMaxKeep(2))
+		bobI, _ = New(sk, WithMaxKeep(2))
+		bob     = bobI.(*session)
+
+		alice, _ = NewWithRK(sk, bob.DHs.PublicKey(), WithMaxKeep(2))
 		h        = SessionTestHelper{t, alice, bob}
 	)
 
@@ -260,7 +268,7 @@ type SessionTestHelper struct {
 	bob   Session
 }
 
-func (h SessionTestHelper) AliceToBob(msg string, ad AssociatedData) {
+func (h SessionTestHelper) AliceToBob(msg string, ad []byte) {
 	var (
 		msgByte = []byte(msg)
 		m       = h.alice.RatchetEncrypt(msgByte, ad)
@@ -270,7 +278,7 @@ func (h SessionTestHelper) AliceToBob(msg string, ad AssociatedData) {
 	require.EqualValues(h.t, msgByte, d)
 }
 
-func (h SessionTestHelper) BobToAlice(msg string, ad AssociatedData) {
+func (h SessionTestHelper) BobToAlice(msg string, ad []byte) {
 	var (
 		msgByte = []byte(msg)
 		m       = h.bob.RatchetEncrypt(msgByte, ad)

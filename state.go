@@ -53,10 +53,13 @@ type state struct {
 }
 
 func newState(sharedKey Key, opts ...option) (state, error) {
+	if sharedKey == [32]byte{} {
+		return state{}, fmt.Errorf("sharedKey mustn't be empty")
+	}
 	c := DefaultCrypto{}
 	dhs, err := c.GenerateDH()
 	if err != nil {
-		return nil, fmt.Errorf("failed to generate dh pair: %s", err)
+		return state{}, fmt.Errorf("failed to generate dh pair: %s", err)
 	}
 
 	s := state{
@@ -75,7 +78,7 @@ func newState(sharedKey Key, opts ...option) (state, error) {
 
 	for i := range opts {
 		if err := opts[i](&s); err != nil {
-			return nil, fmt.Errorf("failed to apply option: %s", err)
+			return state{}, fmt.Errorf("failed to apply option: %s", err)
 		}
 	}
 
