@@ -63,6 +63,7 @@ func (s *sessionHE) RatchetEncryptHE(plaintext, ad []byte) MessageHE {
 	}
 }
 
+// RatchetDecryptHE is called to AEAD-decrypt header-encrypted messages.
 func (s *sessionHE) RatchetDecryptHE(m MessageHE, ad []byte) ([]byte, error) {
 	// Is the message one of the skipped?
 	if plaintext, err := s.trySkippedMessages(m, ad); err != nil || plaintext != nil {
@@ -113,11 +114,11 @@ func (s *sessionHE) decryptHeader(encHeader []byte) (MessageHeader, bool, error)
 		h, err := MessageEncHeader(encoded).Decode()
 		return h, false, err
 	}
-	if encoded, err := s.Crypto.Decrypt(s.HKr, encHeader, nil); err == nil {
+	if encoded, err := s.Crypto.Decrypt(s.NHKr, encHeader, nil); err == nil {
 		h, err := MessageEncHeader(encoded).Decode()
-		return h, false, err
+		return h, true, err
 	}
-	return MessageHeader{}, false, fmt.Errorf("invalid message header")
+	return MessageHeader{}, false, fmt.Errorf("invalid header")
 }
 
 func (s *sessionHE) trySkippedMessages(m MessageHE, ad []byte) ([]byte, error) {

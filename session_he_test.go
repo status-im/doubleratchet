@@ -1,6 +1,7 @@
 package doubleratchet
 
 import (
+	"fmt"
 	"github.com/stretchr/testify/require"
 	"testing"
 )
@@ -45,7 +46,7 @@ func TestNewHEWithRemoteKey(t *testing.T) {
 	require.NotEqual(t, sk, s.SendCh.CK)
 }
 
-func TestState_RatchetEncrypt_Basic(t *testing.T) {
+func TestSessionHE_RatchetEncrypt_Basic(t *testing.T) {
 	// Arrange.
 	var (
 		si, err = NewHEWithRemoteKey(sk, sharedHka, sharedNhkb, bobPair.PublicKey())
@@ -64,23 +65,23 @@ func TestState_RatchetEncrypt_Basic(t *testing.T) {
 	require.NotEmpty(t, m.Ciphertext)
 }
 
-//func TestState_RatchetDecrypt_CommunicationAliceSends(t *testing.T) {
-//	// Arrange.
-//	var (
-//		bob, _   = New(sk, bobPair)
-//		alice, _ = NewWithRemoteKey(sk, bobPair.PublicKey())
-//	)
-//
-//	for i := 0; i < 10; i++ {
-//		pt := fmt.Sprintf("msg%d", i)
-//		t.Run(pt, func(t *testing.T) {
-//			h := SessionTestHelper{t, alice, bob}
-//			h.AliceToBob(pt, []byte("alice associated data"))
-//		})
-//	}
-//}
-//
-//func TestState_RatchetDecrypt_CommunicationBobSends(t *testing.T) {
+func TestSessionHE_RatchetDecrypt_CommunicationAliceSends(t *testing.T) {
+	// Arrange.
+	var (
+		bob, _   = NewHE(sk, sharedHka, sharedNhkb, bobPair)
+		alice, _ = NewHEWithRemoteKey(sk, sharedHka, sharedNhkb, bobPair.PublicKey())
+	)
+
+	for i := 0; i < 10; i++ {
+		pt := fmt.Sprintf("msg%d", i)
+		t.Run(pt, func(t *testing.T) {
+			h := SessionTestHelperHE{t, alice, bob}
+			h.AliceToBob(pt, []byte("alice associated data"))
+		})
+	}
+}
+
+//func TestSessionHE_RatchetDecrypt_CommunicationBobSends(t *testing.T) {
 //	var (
 //		bob, _   = New(sk, bobPair)
 //		alice, _ = NewWithRemoteKey(sk, bobPair.PublicKey())
@@ -95,7 +96,7 @@ func TestState_RatchetEncrypt_Basic(t *testing.T) {
 //	}
 //}
 //
-//func TestState_RatchetDecrypt_CommunicationPingPong(t *testing.T) {
+//func TestSessionHE_RatchetDecrypt_CommunicationPingPong(t *testing.T) {
 //	// Arrange.
 //	var (
 //		bob, _   = New(sk, bobPair)
@@ -113,7 +114,7 @@ func TestState_RatchetEncrypt_Basic(t *testing.T) {
 //	}
 //}
 //
-//func TestState_RatchetDecrypt_CommunicationSkippedMessages(t *testing.T) {
+//func TestSessionHE_RatchetDecrypt_CommunicationSkippedMessages(t *testing.T) {
 //	// Arrange.
 //	var (
 //		bobI, _ = New(sk, bobPair, WithMaxSkip(1))
@@ -166,7 +167,7 @@ func TestState_RatchetEncrypt_Basic(t *testing.T) {
 //	})
 //}
 //
-//func TestState_SkippedKeysDeletion(t *testing.T) {
+//func TestSessionHE_SkippedKeysDeletion(t *testing.T) {
 //	// Arrange.
 //	var (
 //		bob, _   = New(sk, bobPair, WithMaxKeep(2))
@@ -185,3 +186,30 @@ func TestState_RatchetEncrypt_Basic(t *testing.T) {
 //	_, err := bob.RatchetDecrypt(m0, nil)
 //	require.NotNil(t, err)
 //}
+
+type SessionTestHelperHE struct {
+	t *testing.T
+
+	alice SessionHE
+	bob   SessionHE
+}
+
+func (h SessionTestHelperHE) AliceToBob(msg string, ad []byte) {
+	var (
+		msgByte = []byte(msg)
+		m       = h.alice.RatchetEncryptHE(msgByte, ad)
+		d, err  = h.bob.RatchetDecryptHE(m, ad)
+	)
+	require.Nil(h.t, err)
+	require.EqualValues(h.t, msgByte, d)
+}
+
+func (h SessionTestHelperHE) BobToAlice(msg string, ad []byte) {
+	var (
+		msgByte = []byte(msg)
+		m       = h.bob.RatchetEncryptHE(msgByte, ad)
+		d, err  = h.alice.RatchetDecryptHE(m, ad)
+	)
+	require.Nil(h.t, err)
+	require.EqualValues(h.t, msgByte, d)
+}
