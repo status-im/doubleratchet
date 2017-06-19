@@ -9,15 +9,19 @@ import (
 var (
 	sk      = Key{0xeb, 0x8, 0x10, 0x7c, 0x33, 0x54, 0x0, 0x20, 0xe9, 0x4f, 0x6c, 0x84, 0xe4, 0x39, 0x50, 0x5a, 0x2f, 0x60, 0xbe, 0x81, 0xa, 0x78, 0x8b, 0xeb, 0x1e, 0x2c, 0x9, 0x8d, 0x4b, 0x4d, 0xc1, 0x40}
 	bobPair = dhPair{
-		//privateKey: Key{0xf0, 0x22, 0x54, 0xf4, 0xcb, 0xa2, 0x60, 0xc8, 0xeb, 0xe, 0x83, 0xb, 0xc8, 0xb2, 0xfb, 0x18, 0x6f, 0x1b, 0xa4, 0xa2, 0x6e, 0x45, 0xc, 0xeb, 0xff, 0x74, 0xce, 0x65, 0x8b, 0x6e, 0x4c, 0x5d},
-		publicKey: Key{0xe3, 0xbe, 0xb9, 0x4e, 0x70, 0x17, 0x37, 0xc, 0x1, 0x8f, 0xa9, 0x7e, 0xef, 0x4, 0xfb, 0x23, 0xac, 0xea, 0x28, 0xf7, 0xa9, 0x56, 0xcc, 0x1d, 0x46, 0xf3, 0xb5, 0x1d, 0x7d, 0x7d, 0x5e, 0x2c},
+		privateKey: Key{0xf0, 0x22, 0x54, 0xf4, 0xcb, 0xa2, 0x60, 0xc8, 0xeb, 0xe, 0x83, 0xb, 0xc8, 0xb2, 0xfb, 0x18, 0x6f, 0x1b, 0xa4, 0xa2, 0x6e, 0x45, 0xc, 0xeb, 0xff, 0x74, 0xce, 0x65, 0x8b, 0x6e, 0x4c, 0x5d},
+		publicKey:  Key{0xe3, 0xbe, 0xb9, 0x4e, 0x70, 0x17, 0x37, 0xc, 0x1, 0x8f, 0xa9, 0x7e, 0xef, 0x4, 0xfb, 0x23, 0xac, 0xea, 0x28, 0xf7, 0xa9, 0x56, 0xcc, 0x1d, 0x46, 0xf3, 0xb5, 0x1d, 0x7d, 0x7d, 0x5e, 0x2c},
+	}
+	alicePair = dhPair{
+		privateKey: Key{0x78, 0xa1, 0x5e, 0xc7, 0xbe, 0x74, 0x9f, 0x1, 0x4b, 0xdc, 0x21, 0xeb, 0x60, 0xd4, 0xff, 0xac, 0x1e, 0x31, 0x8b, 0x16, 0xf8, 0x12, 0xd4, 0x40, 0xd, 0x82, 0x7a, 0xf0, 0xe, 0xba, 0xc2, 0x7a},
+		publicKey:  Key{0x3b, 0x93, 0x57, 0x64, 0xd1, 0x47, 0xf1, 0xf, 0xc7, 0x13, 0x1, 0xc6, 0xf9, 0xed, 0x49, 0xa4, 0xad, 0x59, 0x92, 0x87, 0xb1, 0x0, 0xf1, 0x4a, 0x8e, 0x43, 0x4d, 0xa7, 0x2e, 0x3d, 0xf8, 0x72},
 	}
 )
 
 func TestNew_Basic(t *testing.T) {
 	// Act.
 	var (
-		si, err = New(sk)
+		si, err = New(sk, bobPair)
 		s       = si.(*session)
 	)
 
@@ -42,7 +46,7 @@ func TestNew_Basic(t *testing.T) {
 
 func TestNew_BadSharedKey(t *testing.T) {
 	// Act.
-	_, err := New([32]byte{})
+	_, err := New([32]byte{}, bobPair)
 
 	// Assert.
 	require.NotNil(t, err)
@@ -51,7 +55,7 @@ func TestNew_BadSharedKey(t *testing.T) {
 func TestNewWithRK(t *testing.T) {
 	// Act.
 	var (
-		si, err = NewWithRK(sk, bobPair.PublicKey())
+		si, err = NewWithRemoteKey(sk, bobPair.PublicKey())
 		s       = si.(*session)
 	)
 
@@ -66,7 +70,7 @@ func TestNewWithRK(t *testing.T) {
 func TestState_RatchetEncryptDecrypt_Basic(t *testing.T) {
 	// Arrange.
 	var (
-		si, err = NewWithRK(sk, bobPair.PublicKey())
+		si, err = NewWithRemoteKey(sk, bobPair.PublicKey())
 		s       = si.(*session)
 		oldCKs  = s.SendCh.CK
 	)
@@ -89,8 +93,8 @@ func TestState_RatchetEncryptDecrypt_Basic(t *testing.T) {
 func TestState_RatchetDecrypt_CommunicationFailedWithNoPublicKey(t *testing.T) {
 	// Arrange.
 	var (
-		bob, _   = New(sk)
-		alice, _ = New(sk)
+		bob, _   = New(sk, bobPair)
+		alice, _ = New(sk, alicePair)
 	)
 
 	// Act.
@@ -106,10 +110,10 @@ func TestState_RatchetDecrypt_CommunicationFailedWithNoPublicKey(t *testing.T) {
 func TestState_RatchetDecrypt_CommunicationAliceSends(t *testing.T) {
 	// Arrange.
 	var (
-		bobI, _ = New(sk)
+		bobI, _ = New(sk, bobPair)
 		bob     = bobI.(*session)
 
-		alice, _ = NewWithRK(sk, bob.DHs.PublicKey())
+		alice, _ = NewWithRemoteKey(sk, bob.DHs.PublicKey())
 	)
 
 	for i := 0; i < 10; i++ {
@@ -123,10 +127,10 @@ func TestState_RatchetDecrypt_CommunicationAliceSends(t *testing.T) {
 
 func TestState_RatchetDecrypt_CommunicationBobSends(t *testing.T) {
 	var (
-		bobI, _ = New(sk)
+		bobI, _ = New(sk, bobPair)
 		bob     = bobI.(*session)
 
-		alice, _ = NewWithRK(sk, bob.DHs.PublicKey())
+		alice, _ = NewWithRemoteKey(sk, bob.DHs.PublicKey())
 	)
 
 	for i := 0; i < 10; i++ {
@@ -141,10 +145,10 @@ func TestState_RatchetDecrypt_CommunicationBobSends(t *testing.T) {
 func TestState_RatchetDecrypt_CommunicationPingPong(t *testing.T) {
 	// Arrange.
 	var (
-		bobI, _ = New(sk)
+		bobI, _ = New(sk, bobPair)
 		bob     = bobI.(*session)
 
-		alice, _ = NewWithRK(sk, bob.DHs.PublicKey())
+		alice, _ = NewWithRemoteKey(sk, bob.DHs.PublicKey())
 	)
 
 	for i := 0; i < 10; i++ {
@@ -161,10 +165,10 @@ func TestState_RatchetDecrypt_CommunicationPingPong(t *testing.T) {
 func TestState_RatchetDecrypt_CommunicationSkippedMessages(t *testing.T) {
 	// Arrange.
 	var (
-		bobI, _ = New(sk, WithMaxSkip(1))
+		bobI, _ = New(sk, bobPair, WithMaxSkip(1))
 		bob     = bobI.(*session)
 
-		aliceI, _ = NewWithRK(sk, bob.DHs.PublicKey(), WithMaxSkip(1))
+		aliceI, _ = NewWithRemoteKey(sk, bob.DHs.PublicKey(), WithMaxSkip(1))
 		alice     = aliceI.(*session)
 	)
 
@@ -214,10 +218,10 @@ func TestState_RatchetDecrypt_CommunicationSkippedMessages(t *testing.T) {
 func TestState_SkippedKeysDeletion(t *testing.T) {
 	// Arrange.
 	var (
-		bobI, _ = New(sk, WithMaxKeep(2))
+		bobI, _ = New(sk, bobPair, WithMaxKeep(2))
 		bob     = bobI.(*session)
 
-		alice, _ = NewWithRK(sk, bob.DHs.PublicKey(), WithMaxKeep(2))
+		alice, _ = NewWithRemoteKey(sk, bob.DHs.PublicKey(), WithMaxKeep(2))
 		h        = SessionTestHelper{t, alice, bob}
 	)
 

@@ -17,26 +17,25 @@ type session struct {
 }
 
 // New creates session with the shared key.
-func New(sharedKey Key, opts ...option) (Session, error) {
+func New(sharedKey Key, keyPair DHPair, opts ...option) (Session, error) {
 	state, err := newState(sharedKey, opts...)
 	if err != nil {
 		return nil, err
 	}
-	s := &session{state}
-	return s, nil
+	state.DHs = keyPair
+	return &session{state}, nil
 }
 
-// NewWithRK creates session with the shared key and public key of the other party.
-func NewWithRK(sharedKey, remoteKey Key, opts ...option) (Session, error) {
-	sI, err := New(sharedKey, opts...)
+// NewWithRemoteKey creates session with the shared key and public key of the other party.
+func NewWithRemoteKey(sharedKey, remoteKey Key, opts ...option) (Session, error) {
+	state, err := newState(sharedKey, opts...)
 	if err != nil {
 		return nil, err
 	}
-	s := sI.(*session)
-	s.DHr = remoteKey
+	state.DHr = remoteKey
 	// FIXME: Where the header key goes?
-	s.SendCh, _ = s.RootCh.step(s.Crypto.DH(s.DHs, s.DHr))
-	return s, nil
+	state.SendCh, _ = state.RootCh.step(state.Crypto.DH(state.DHs, state.DHr))
+	return &session{state}, nil
 }
 
 // RatchetEncrypt performs a symmetric-key ratchet step, then encrypts the message with
