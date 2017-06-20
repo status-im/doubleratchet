@@ -45,16 +45,14 @@ func NewWithRemoteKey(sharedKey, remoteKey Key, opts ...option) (Session, error)
 // the resulting message key.
 func (s *session) RatchetEncrypt(plaintext, ad []byte) Message {
 	var (
-		adBuf = []byte{}
-		h     = MessageHeader{
+		h = MessageHeader{
 			DH: s.DHs.PublicKey(),
 			N:  s.SendCh.N,
 			PN: s.PN,
 		}
 		mk = s.SendCh.step()
 	)
-	adBuf = append(adBuf, ad...)
-	ct := s.Crypto.Encrypt(mk, plaintext, append(adBuf, h.Encode()...))
+	ct := s.Crypto.Encrypt(mk, plaintext, append(ad, h.Encode()...))
 	return Message{h, ct}
 }
 

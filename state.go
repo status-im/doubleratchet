@@ -62,8 +62,8 @@ func newState(sharedKey Key, opts ...option) (state, error) {
 			DHs:    dhPair{},
 			Crypto: c,
 			RootCh: kdfRootChain{CK: sharedKey, Crypto: c},
-			// Populate CKs and CKr with sharedKey as per specification so that both
-			// parties could send and receive messages from the very beginning.
+			// Populate CKs and CKr with sharedKey so that both parties could send and receive
+			// messages from the very beginning.
 			SendCh:     kdfChain{CK: sharedKey, Crypto: c},
 			RecvCh:     kdfChain{CK: sharedKey, Crypto: c},
 			MkSkipped:  &KeysStorageInMemory{},
