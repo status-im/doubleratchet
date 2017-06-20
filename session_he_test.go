@@ -23,6 +23,7 @@ func TestNewHE(t *testing.T) {
 	require.Nil(t, err)
 	require.Equal(t, dhPair{bobPair.PrivateKey(), bobPair.PublicKey()}, s.DHs)
 	require.Equal(t, sharedNhkb, s.NHKs)
+	require.Equal(t, sharedHka, s.HKs)
 	require.Equal(t, sharedHka, s.NHKr)
 }
 
@@ -40,6 +41,7 @@ func TestNewHEWithRemoteKey(t *testing.T) {
 	require.NotEqual(t, Key{}, s.NHKs)
 	require.Equal(t, sharedHka, s.HKs)
 	require.Equal(t, sharedNhkb, s.NHKr)
+	require.Equal(t, sharedHka, s.HKs)
 	require.NotEqual(t, Key{}, s.RootCh.CK)
 	require.NotEqual(t, sk, s.RootCh.CK)
 	require.NotEqual(t, Key{}, s.SendCh.CK)

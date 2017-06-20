@@ -16,6 +16,11 @@ The results of Diffie-Hellman calculations are mixed into the derived keys so th
 be calculated from earlier ones. These properties gives some protection to earlier or later encrypted 
 messages in case of a compromise of a party's keys.
 
+## Project status
+
+The library is in beta version and ready for integration into production projects with care.
+Let me know if you face any problems or have any questions or suggestions.
+
 ## Implementation notes
 
 ### The Double Ratchet logic
@@ -106,13 +111,17 @@ Additional options can be passed to constructors to customize the algorithm beha
 ```go
 doubleratchet.New(
     sk, keyPair,
+    
     // Your own cryptography supplement implementing doubleratchet.Crypto.
     WithCrypto(c),
+    
     // Custom storage for skipped keys implementing doubleratchet.KeysStorage.
     WithKeysStorage(ks),
+    
     // The maximum number of skipped keys. Error will be raised in an attempt to store more keys
     // in a single chain while decrypting.
     WithMaxSkip(1200),
+    
     // The number of Diffie-Hellman ratchet steps skipped keys will be stored.
     WithMaxKeep(90),
 )
@@ -136,7 +145,7 @@ ideas as stated in the Double Ratchet specification.
 `iv + len(pt) + signature = 16 + 12 + 32 = 60` bytes plus a header `rk + pn + n = 32 + 4 + 4 = 40` bytes
 with 100 bytes in total. In case of the header encryption modification the header will also
 be encrypted which will add 48 more bytes with the total of 148 bytes. Note that the longer
-your message, the more percentage of the message it takes.
+your message, the more resulting length it takes.
 1. It does a bit more computations especially for skipped messages and will work more slowly.
 
 #### Example
@@ -197,7 +206,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	// Encryption and decryption is done the same way in the basic version.
+	// Encryption and decryption is done the same way as in the basic version.
 	m := alice.RatchetEncrypt([]byte("Hi Bob!"), nil)
 
 	plaintext, err := bob.RatchetDecrypt(m, nil)

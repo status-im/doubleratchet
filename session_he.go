@@ -24,6 +24,7 @@ func NewHE(sharedKey, sharedHka, sharedNhkb Key, keyPair DHPair, opts ...option)
 	}
 	state.DHs = keyPair
 	state.NHKs = sharedNhkb
+	state.HKs = sharedHka
 	state.NHKr = sharedHka
 	return &sessionHE{state}, nil
 }
@@ -42,6 +43,7 @@ func NewHEWithRemoteKey(sharedKey, sharedHka, sharedNhkb, remoteKey Key, opts ..
 	state.SendCh, state.NHKs = state.RootCh.step(state.Crypto.DH(state.DHs, state.DHr))
 	state.HKs = sharedHka
 	state.NHKr = sharedNhkb
+	state.HKr = sharedHka
 	return &sessionHE{state}, nil
 }
 
