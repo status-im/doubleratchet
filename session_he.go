@@ -4,12 +4,12 @@ import "fmt"
 
 // SessionHE is the session of the party involved the Double Ratchet Algorithm with encrypted header modification.
 type SessionHE interface {
-	// RatchetEncryptHE performs a symmetric-key ratchet step, then AEAD-encrypts
+	// RatchetEncrypt performs a symmetric-key ratchet step, then AEAD-encrypts
 	// the header-encrypted message with the resulting message key.
-	RatchetEncryptHE(plaintext, associatedData []byte) MessageHE
+	RatchetEncrypt(plaintext, associatedData []byte) MessageHE
 
-	// RatchetDecryptHE is called to AEAD-decrypt header-encrypted messages.
-	RatchetDecryptHE(m MessageHE, associatedData []byte) ([]byte, error)
+	// RatchetDecrypt is called to AEAD-decrypt header-encrypted messages.
+	RatchetDecrypt(m MessageHE, associatedData []byte) ([]byte, error)
 }
 
 type sessionHE struct {
@@ -45,9 +45,9 @@ func NewHEWithRemoteKey(sharedKey, sharedHka, sharedNhkb, remoteKey Key, opts ..
 	return &sessionHE{state}, nil
 }
 
-// RatchetEncryptHE performs a symmetric-key ratchet step, then encrypts the header with
+// RatchetEncrypt performs a symmetric-key ratchet step, then encrypts the header with
 // the corresponding header key and the message with resulting message key.
-func (s *sessionHE) RatchetEncryptHE(plaintext, ad []byte) MessageHE {
+func (s *sessionHE) RatchetEncrypt(plaintext, ad []byte) MessageHE {
 	var (
 		h = MessageHeader{
 			DH: s.DHs.PublicKey(),
@@ -63,8 +63,8 @@ func (s *sessionHE) RatchetEncryptHE(plaintext, ad []byte) MessageHE {
 	}
 }
 
-// RatchetDecryptHE is called to AEAD-decrypt header-encrypted messages.
-func (s *sessionHE) RatchetDecryptHE(m MessageHE, ad []byte) ([]byte, error) {
+// RatchetDecrypt is called to AEAD-decrypt header-encrypted messages.
+func (s *sessionHE) RatchetDecrypt(m MessageHE, ad []byte) ([]byte, error) {
 	// Is the message one of the skipped?
 	if plaintext, err := s.trySkippedMessages(m, ad); err != nil || plaintext != nil {
 		return plaintext, err
@@ -83,7 +83,7 @@ func (s *sessionHE) RatchetDecryptHE(m MessageHE, ad []byte) ([]byte, error) {
 		skippedKeys2 []skippedKey
 	)
 	if step {
-		if skippedKeys1, err = sc.skipMessageKeys(s.HKr, uint(h.PN)); err != nil {
+		if skippedKeys1, err = sc.skipMessageKeys(sc.HKr, uint(h.PN)); err != nil {
 			return nil, fmt.Errorf("can't skip previous chain message keys: %s", err)
 		}
 		if err = sc.dhRatchet(h); err != nil {
@@ -92,7 +92,7 @@ func (s *sessionHE) RatchetDecryptHE(m MessageHE, ad []byte) ([]byte, error) {
 	}
 
 	// After all, update the current chain.
-	if skippedKeys2, err = sc.skipMessageKeys(s.HKr, uint(h.N)); err != nil {
+	if skippedKeys2, err = sc.skipMessageKeys(sc.HKr, uint(h.N)); err != nil {
 		return nil, fmt.Errorf("can't skip current chain message keys: %s", err)
 	}
 	mk := sc.RecvCh.step()
@@ -130,7 +130,6 @@ func (s *sessionHE) trySkippedMessages(m MessageHE, ad []byte) ([]byte, error) {
 			}
 			h, err := MessageEncHeader(hEnc).Decode()
 			if err != nil {
-				// FIXME: Log fail here and continue instead of return.
 				return nil, fmt.Errorf("can't decode header %s for skipped message key under (%s, %d)", hEnc, hk, n)
 			}
 			if uint(h.N) != n {
