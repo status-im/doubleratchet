@@ -59,7 +59,12 @@ func (s *session) RatchetEncrypt(plaintext, ad []byte) Message {
 // RatchetDecrypt is called to decrypt messages.
 func (s *session) RatchetDecrypt(m Message, ad []byte) ([]byte, error) {
 	// Is the message one of the skipped?
-	if mk, ok := s.MkSkipped.Get(m.Header.DH, uint(m.Header.N)); ok {
+	mk, ok, err := s.MkSkipped.Get(m.Header.DH, uint(m.Header.N))
+	if err != nil {
+		return nil, err
+	}
+
+	if ok {
 		plaintext, err := s.Crypto.Decrypt(mk, m.Ciphertext, append(ad, m.Header.Encode()...))
 		if err != nil {
 			return nil, fmt.Errorf("can't decrypt skipped message: %s", err)
@@ -74,7 +79,6 @@ func (s *session) RatchetDecrypt(m Message, ad []byte) ([]byte, error) {
 
 		skippedKeys1 []skippedKey
 		skippedKeys2 []skippedKey
-		err          error
 	)
 
 	// Is there a new ratchet key?
@@ -93,7 +97,7 @@ func (s *session) RatchetDecrypt(m Message, ad []byte) ([]byte, error) {
 	if skippedKeys2, err = sc.skipMessageKeys(sc.DHr, uint(m.Header.N)); err != nil {
 		return nil, fmt.Errorf("can't skip current chain message keys: %s", err)
 	}
-	mk := sc.RecvCh.step()
+	mk = sc.RecvCh.step()
 	plaintext, err := s.Crypto.Decrypt(mk, m.Ciphertext, append(ad, m.Header.Encode()...))
 	if err != nil {
 		return nil, fmt.Errorf("can't decrypt: %s", err)

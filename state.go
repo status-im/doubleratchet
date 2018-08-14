@@ -109,7 +109,11 @@ func (s *state) skipMessageKeys(key Key, until uint) ([]skippedKey, error) {
 	if until < uint(s.RecvCh.N) {
 		return nil, fmt.Errorf("bad until: probably an out-of-order message that was deleted")
 	}
-	nSkipped := s.MkSkipped.Count(key)
+	nSkipped, err := s.MkSkipped.Count(key)
+	if err != nil {
+		return nil, err
+	}
+
 	if until-uint(s.RecvCh.N)+nSkipped > s.MaxSkip {
 		return nil, fmt.Errorf("too many messages")
 	}
