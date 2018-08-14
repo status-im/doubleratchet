@@ -164,13 +164,19 @@ func TestSession_RatchetDecrypt_CommunicationSkippedMessages(t *testing.T) {
 		m1.Ciphertext[len(m1.Ciphertext)-1] ^= 10
 		_, err := bob.RatchetDecrypt(m1, nil) // Error: invalid signature.
 		require.NotNil(t, err)
-		require.EqualValues(t, 0, bob.MkSkipped.Count(bob.DHr))
-		m1.Ciphertext[len(m1.Ciphertext)-1] ^= 10
 
+		bobSkippedCount, err := bob.MkSkipped.Count(bob.DHr)
+		require.NoError(t, err)
+		require.EqualValues(t, 0, bobSkippedCount)
+
+		m1.Ciphertext[len(m1.Ciphertext)-1] ^= 10
 		d, err := bob.RatchetDecrypt(m1, nil) // Decrypted and skipped.
 		require.Nil(t, err)
 		require.Equal(t, []byte("bob"), d)
-		require.EqualValues(t, 1, bob.MkSkipped.Count(bob.DHr))
+
+		bobSkippedCount, err = bob.MkSkipped.Count(bob.DHr)
+		require.NoError(t, err)
+		require.EqualValues(t, 1, bobSkippedCount)
 
 		_, err = bob.RatchetDecrypt(m3, nil) // Error: too many to skip.
 		require.NotNil(t, err)

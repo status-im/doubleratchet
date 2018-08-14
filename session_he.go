@@ -124,7 +124,12 @@ func (s *sessionHE) decryptHeader(encHeader []byte) (MessageHeader, bool, error)
 }
 
 func (s *sessionHE) trySkippedMessages(m MessageHE, ad []byte) ([]byte, error) {
-	for hk, keys := range s.MkSkipped.All() {
+	allMessages, err := s.MkSkipped.All()
+	if err != nil {
+		return nil, err
+	}
+
+	for hk, keys := range allMessages {
 		for n, mk := range keys {
 			hEnc, err := s.Crypto.Decrypt(hk, m.Header, nil)
 			if err != nil {

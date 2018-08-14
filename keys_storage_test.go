@@ -16,9 +16,10 @@ func TestKeysStorageInMemory_Get(t *testing.T) {
 	ks := &KeysStorageInMemory{}
 
 	// Act.
-	_, ok := ks.Get(pubKey1, 0)
+	_, ok, err := ks.Get(pubKey1, 0)
 
 	// Assert.
+	require.NoError(t, err)
 	require.False(t, ok)
 }
 
@@ -35,9 +36,10 @@ func TestKeysStorageInMemory_Count(t *testing.T) {
 	ks := &KeysStorageInMemory{}
 
 	// Act.
-	cnt := ks.Count(pubKey1)
+	cnt, err := ks.Count(pubKey1)
 
 	// Assert.
+	require.NoError(t, err)
 	require.EqualValues(t, 0, cnt)
 }
 
@@ -46,7 +48,8 @@ func TestKeysStorageInMemory_Delete(t *testing.T) {
 	ks := &KeysStorageInMemory{}
 
 	// Act and assert.
-	ks.DeleteMk(pubKey1, 0)
+	err := ks.DeleteMk(pubKey1, 0)
+	require.NoError(t, err)
 }
 
 func TestKeysStorageInMemory_Flow(t *testing.T) {
@@ -61,18 +64,20 @@ func TestKeysStorageInMemory_Flow(t *testing.T) {
 	t.Run("put and get existing", func(t *testing.T) {
 		// Act.
 		ks.Put(pubKey1, 0, mk)
-		k, ok := ks.Get(pubKey1, 0)
+		k, ok, err := ks.Get(pubKey1, 0)
 
 		// Assert.
+		require.NoError(t, err)
 		require.True(t, ok)
 		require.Equal(t, mk, k)
 	})
 
 	t.Run("get all", func(t *testing.T) {
 		// Act.
-		all := ks.All()
+		all, err := ks.All()
 
 		// Assert.
+		require.NoError(t, err)
 		require.Len(t, all, 1)
 		require.Len(t, all[pubKey1], 1)
 		require.Equal(t, mk, all[pubKey1][0])
@@ -80,57 +85,75 @@ func TestKeysStorageInMemory_Flow(t *testing.T) {
 
 	t.Run("get non-existent pub key", func(t *testing.T) {
 		// Act.
-		_, ok := ks.Get(pubKey2, 0)
+		_, ok, err := ks.Get(pubKey2, 0)
 
 		// Assert.
+		require.NoError(t, err)
 		require.False(t, ok)
 	})
 
 	t.Run("get non-existent message key of existing pubkey", func(t *testing.T) {
 		// Act.
-		_, ok := ks.Get(pubKey1, 1)
+		_, ok, err := ks.Get(pubKey1, 1)
 
 		// Assert.
+		require.NoError(t, err)
 		require.False(t, ok)
 	})
 
 	t.Run("count", func(t *testing.T) {
 		// Act.
-		cnt := ks.Count(pubKey1)
+		cnt, err := ks.Count(pubKey1)
 
 		// Assert.
+		require.NoError(t, err)
 		require.EqualValues(t, 1, cnt)
 	})
 
 	t.Run("delete non-existent message key of existing pubkey", func(t *testing.T) {
 		// Act and assert.
-		ks.DeleteMk(pubKey1, 1)
+		err := ks.DeleteMk(pubKey1, 1)
+		require.NoError(t, err)
 	})
 
 	t.Run("delete non-existent message key of non-existent pubkey", func(t *testing.T) {
 		// Act and assert.
-		ks.DeleteMk(pubKey2, 0)
+		err := ks.DeleteMk(pubKey2, 0)
+		require.NoError(t, err)
 	})
 
 	t.Run("delete existing message key", func(t *testing.T) {
 		// Act.
 		ks.DeleteMk(pubKey1, 0)
-		cnt := ks.Count(pubKey1)
+		cnt, err := ks.Count(pubKey1)
 
 		// Assert.
+		require.NoError(t, err)
 		require.EqualValues(t, 0, cnt)
 	})
 
 	t.Run("delete existing pubkey", func(t *testing.T) {
 		// Act.
-		ks.Put(pubKey1, 0, mk)
-		ks.Put(pubKey2, 0, mk)
-		ks.DeletePk(pubKey1)
-		ks.DeletePk(pubKey1)
-		ks.DeletePk(pubKey2)
+		err := ks.Put(pubKey1, 0, mk)
+		require.NoError(t, err)
 
-		cn1 := ks.Count(pubKey1)
-		cn2 := ks.Count(pubKey2)
+		err = ks.Put(pubKey2, 0, mk)
+		require.NoError(t, err)
+
+		err = ks.DeletePk(pubKey1)
+		require.NoError(t, err)
+
+		err = ks.DeletePk(pubKey1)
+		require.NoError(t, err)
+
+		err = ks.DeletePk(pubKey2)
+		require.NoError(t, err)
+
+		cn1, err := ks.Count(pubKey1)
+		require.NoError(t, err)
+
+		cn2, err := ks.Count(pubKey2)
+		require.NoError(t, err)
 
 		// Assert.
 		require.Empty(t, cn1)
