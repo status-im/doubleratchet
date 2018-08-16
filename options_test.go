@@ -82,6 +82,9 @@ func TestWithCrypto_OK(t *testing.T) {
 
 	// Assert.
 	require.Nil(t, err)
+	require.NotNil(t, s.RootCh.Crypto)
+	require.NotNil(t, s.SendCh.Crypto)
+	require.NotNil(t, s.RecvCh.Crypto)
 	require.NotNil(t, s.Crypto)
 }
 
