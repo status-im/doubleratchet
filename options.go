@@ -45,6 +45,9 @@ func WithCrypto(c Crypto) option {
 			return fmt.Errorf("Crypto mustn't be nil")
 		}
 		s.Crypto = c
+		s.RootCh.Crypto = c
+		s.SendCh.Crypto = c
+		s.RecvCh.Crypto = c
 		return nil
 	}
 }
