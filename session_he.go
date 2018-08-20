@@ -13,7 +13,7 @@ type SessionHE interface {
 }
 
 type sessionHE struct {
-	state
+	State
 }
 
 // NewHE creates session with the shared keys.
@@ -79,7 +79,7 @@ func (s *sessionHE) RatchetDecrypt(m MessageHE, ad []byte) ([]byte, error) {
 
 	var (
 		// All changes must be applied on a different session object, so that this session won't be modified nor left in a dirty session.
-		sc state = s.state
+		sc State = s.State
 
 		skippedKeys1 []skippedKey
 		skippedKeys2 []skippedKey

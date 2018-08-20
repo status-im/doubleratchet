@@ -59,7 +59,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/tiabc/doubleratchet"
+	"github.com/status-im/doubleratchet"
 )
 
 func main() {
@@ -80,19 +80,23 @@ func main() {
 	}
 
 	// Bob MUST be created with the shared secret and a DH key pair.
-	bob, err := doubleratchet.New(sk, keyPair)
+	bob, err := doubleratchet.New([]byte("bob-session-id"), sk, keyPair, nil)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	// Alice MUST be created with the shared secret and Bob's public key.
-	alice, err := doubleratchet.NewWithRemoteKey(sk, keyPair.PublicKey())
+	alice, err := doubleratchet.NewWithRemoteKey([]byte("alice-session-id"), sk, keyPair.PublicKey(), nil)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	// Alice can now encrypt messages under the Double Ratchet session.
-	m := alice.RatchetEncrypt([]byte("Hi Bob!"), nil)
+	m, err := alice.RatchetEncrypt([]byte("Hi Bob!"), nil)
+
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	// Which Bob can decrypt.
 	plaintext, err := bob.RatchetDecrypt(m, nil)

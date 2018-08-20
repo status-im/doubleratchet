@@ -7,7 +7,7 @@ import (
 
 func TestWithMaxSkip_OK(t *testing.T) {
 	// Arrange.
-	s := state{}
+	s := State{}
 
 	// Act.
 	err := WithMaxSkip(150)(&s)
@@ -19,7 +19,7 @@ func TestWithMaxSkip_OK(t *testing.T) {
 
 func TestWithMaxSkip_Negative(t *testing.T) {
 	// Arrange.
-	s := state{}
+	s := State{}
 
 	// Act.
 	err := WithMaxSkip(-150)(&s)
@@ -29,7 +29,7 @@ func TestWithMaxSkip_Negative(t *testing.T) {
 }
 func TestWithMaxKeep_OK(t *testing.T) {
 	// Arrange.
-	s := state{}
+	s := State{}
 
 	// Act.
 	err := WithMaxKeep(150)(&s)
@@ -41,7 +41,7 @@ func TestWithMaxKeep_OK(t *testing.T) {
 
 func TestWithMaxKeep_Negative(t *testing.T) {
 	// Arrange.
-	s := state{}
+	s := State{}
 
 	// Act.
 	err := WithMaxKeep(-150)(&s)
@@ -52,7 +52,7 @@ func TestWithMaxKeep_Negative(t *testing.T) {
 
 func TestWithKeysStorage_OK(t *testing.T) {
 	// Arrange.
-	s := state{}
+	s := State{}
 
 	// Act.
 	err := WithKeysStorage(&KeysStorageInMemory{})(&s)
@@ -64,7 +64,7 @@ func TestWithKeysStorage_OK(t *testing.T) {
 
 func TestWithKeysStorage_Nil(t *testing.T) {
 	// Arrange.
-	s := state{}
+	s := State{}
 
 	// Act.
 	err := WithKeysStorage(nil)(&s)
@@ -75,7 +75,7 @@ func TestWithKeysStorage_Nil(t *testing.T) {
 
 func TestWithCrypto_OK(t *testing.T) {
 	// Arrange.
-	s := state{}
+	s := State{}
 
 	// Act.
 	err := WithCrypto(DefaultCrypto{})(&s)
@@ -90,7 +90,7 @@ func TestWithCrypto_OK(t *testing.T) {
 
 func TestWithCrypto_Nil(t *testing.T) {
 	// Arrange.
-	s := state{}
+	s := State{}
 
 	// Act.
 	err := WithCrypto(nil)(&s)
