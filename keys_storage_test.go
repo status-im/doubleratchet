@@ -1,8 +1,9 @@
 package doubleratchet
 
 import (
-	"github.com/stretchr/testify/require"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 var (
@@ -28,7 +29,8 @@ func TestKeysStorageInMemory_Put(t *testing.T) {
 	ks := &KeysStorageInMemory{}
 
 	// Act and assert.
-	ks.Put(pubKey1, 0, mk)
+	err := ks.Put(pubKey1, 0, mk)
+	require.NoError(t, err)
 }
 
 func TestKeysStorageInMemory_Count(t *testing.T) {
@@ -58,12 +60,15 @@ func TestKeysStorageInMemory_Flow(t *testing.T) {
 
 	t.Run("delete non-existent pubkey", func(t *testing.T) {
 		// Act and assert.
-		ks.DeletePk(pubKey1)
+		err := ks.DeletePk(pubKey1)
+		require.NoError(t, err)
 	})
 
 	t.Run("put and get existing", func(t *testing.T) {
 		// Act.
-		ks.Put(pubKey1, 0, mk)
+		err := ks.Put(pubKey1, 0, mk)
+		require.NoError(t, err)
+
 		k, ok, err := ks.Get(pubKey1, 0)
 
 		// Assert.
@@ -124,7 +129,9 @@ func TestKeysStorageInMemory_Flow(t *testing.T) {
 
 	t.Run("delete existing message key", func(t *testing.T) {
 		// Act.
-		ks.DeleteMk(pubKey1, 0)
+		err := ks.DeleteMk(pubKey1, 0)
+		require.NoError(t, err)
+
 		cnt, err := ks.Count(pubKey1)
 
 		// Assert.
