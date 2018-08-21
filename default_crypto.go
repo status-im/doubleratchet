@@ -19,7 +19,7 @@ import (
 // see function comments for details.
 type DefaultCrypto struct{}
 
-// See the Crypto interface.
+// GenerateDH creates a new Diffie-Hellman key pair.
 func (c DefaultCrypto) GenerateDH() (DHPair, error) {
 	var privKey [32]byte
 	if _, err := io.ReadFull(rand.Reader, privKey[:]); err != nil {
@@ -37,7 +37,8 @@ func (c DefaultCrypto) GenerateDH() (DHPair, error) {
 	}, nil
 }
 
-// See the Crypto interface.
+// DH returns the output from the Diffie-Hellman calculation between
+// the private key from the DH key pair dhPair and the DH public key dbPub.
 func (c DefaultCrypto) DH(dhPair DHPair, dhPub Key) Key {
 	var (
 		dhOut   [32]byte
@@ -48,7 +49,8 @@ func (c DefaultCrypto) DH(dhPair DHPair, dhPub Key) Key {
 	return dhOut
 }
 
-// See the Crypto interface.
+// KdfRK returns a pair (32-byte root key, 32-byte chain key) as the output of applying
+// a KDF keyed by a 32-byte root key rk to a Diffie-Hellman output dhOut.
 func (c DefaultCrypto) KdfRK(rk, dhOut Key) (rootKey, chainKey, headerKey Key) {
 	var (
 		r   = hkdf.New(sha256.New, dhOut[:], rk[:], []byte("rsZUpEuXUqqwXBvSy3EcievAh4cMj6QL"))
@@ -64,7 +66,8 @@ func (c DefaultCrypto) KdfRK(rk, dhOut Key) (rootKey, chainKey, headerKey Key) {
 	return
 }
 
-// See the Crypto interface.
+// KdfCK returns a pair (32-byte chain key, 32-byte message key) as the output of applying
+// a KDF keyed by a 32-byte chain key ck to some constant.
 func (c DefaultCrypto) KdfCK(ck Key) (chainKey Key, msgKey Key) {
 	const (
 		ckInput = 15
@@ -73,11 +76,11 @@ func (c DefaultCrypto) KdfCK(ck Key) (chainKey Key, msgKey Key) {
 
 	h := hmac.New(sha256.New, ck[:])
 
-	h.Write([]byte{ckInput})
+	_, _ = h.Write([]byte{ckInput})
 	copy(chainKey[:], h.Sum(nil))
 	h.Reset()
 
-	h.Write([]byte{mkInput})
+	_, _ = h.Write([]byte{mkInput})
 	copy(msgKey[:], h.Sum(nil))
 
 	return chainKey, msgKey
@@ -101,7 +104,7 @@ func (c DefaultCrypto) Encrypt(mk Key, plaintext, ad []byte) []byte {
 	return append(ciphertext, c.computeSignature(authKey[:], ciphertext, ad)...)
 }
 
-// See the Crypto interface.
+// Decrypt returns the AEAD decryption of ciphertext with message key mk.
 func (c DefaultCrypto) Decrypt(mk Key, authCiphertext, ad []byte) ([]byte, error) {
 	var (
 		l          = len(authCiphertext)
@@ -147,8 +150,8 @@ func (c DefaultCrypto) deriveEncKeys(mk Key) (encKey Key, authKey Key, iv [16]by
 
 func (c DefaultCrypto) computeSignature(authKey, ciphertext, associatedData []byte) []byte {
 	h := hmac.New(sha256.New, authKey)
-	h.Write(associatedData)
-	h.Write(ciphertext)
+	_, _ = h.Write(associatedData)
+	_, _ = h.Write(ciphertext)
 	return h.Sum(nil)
 }
 

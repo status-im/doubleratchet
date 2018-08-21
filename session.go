@@ -114,7 +114,7 @@ func (s *sessionState) RatchetDecrypt(m Message, ad []byte) ([]byte, error) {
 		if err != nil {
 			return nil, fmt.Errorf("can't decrypt skipped message: %s", err)
 		}
-		s.MkSkipped.DeleteMk(m.Header.DH, uint(m.Header.N))
+		_ = s.MkSkipped.DeleteMk(m.Header.DH, uint(m.Header.N))
 		return plaintext, nil
 	}
 
