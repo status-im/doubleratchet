@@ -10,7 +10,7 @@ func TestNew(t *testing.T) {
 	// Act.
 	var (
 		si, err = New([]byte("id"), sk, bobPair, nil)
-		s       = si.(*session)
+		s       = si.(*sessionState)
 	)
 
 	// Assert.
@@ -29,10 +29,10 @@ func TestNew_BadOption(t *testing.T) {
 
 func TestNewWithRemoteKey(t *testing.T) {
 	// Act.
-	var (
-		si, err = NewWithRemoteKey([]byte("id"), sk, bobPair.PublicKey(), nil)
-		s       = si.(*session)
-	)
+	si, err := NewWithRemoteKey([]byte("id"), sk, bobPair.PublicKey(), nil)
+	require.NoError(t, err)
+
+	s := si.(*sessionState)
 
 	// Assert.
 	require.Nil(t, err)
@@ -54,18 +54,17 @@ func TestNewWithRemoteKey_BadOption(t *testing.T) {
 
 func TestSession_RatchetEncrypt_Basic(t *testing.T) {
 	// Arrange.
-	var (
-		si, err = NewWithRemoteKey([]byte("id"), sk, bobPair.PublicKey(), nil)
-		s       = si.(*session)
-		oldCKs  = s.SendCh.CK
-	)
+	si, err := NewWithRemoteKey([]byte("id"), sk, bobPair.PublicKey(), nil)
+	require.NoError(t, err)
+
+	s := si.(*sessionState)
+	oldCKs := s.SendCh.CK
 
 	// Act.
 	m, err := si.RatchetEncrypt([]byte("1337"), nil)
 
 	// Assert.
 	require.NoError(t, err)
-	require.Nil(t, err)
 	require.NotEqual(t, oldCKs, s.SendCh.CK)
 	require.EqualValues(t, 1, s.SendCh.N)
 	require.Equal(t, MessageHeader{
@@ -146,10 +145,10 @@ func TestSession_RatchetDecrypt_CommunicationSkippedMessages(t *testing.T) {
 	// Arrange.
 	var (
 		bobI, _ = New([]byte("id"), sk, bobPair, nil, WithMaxSkip(1))
-		bob     = bobI.(*session)
+		bob     = bobI.(*sessionState)
 
 		aliceI, _ = NewWithRemoteKey([]byte("id"), sk, bob.DHs.PublicKey(), nil, WithMaxSkip(1))
-		alice     = aliceI.(*session)
+		alice     = aliceI.(*sessionState)
 	)
 
 	t.Run("skipped messages from alice", func(t *testing.T) {
@@ -241,7 +240,6 @@ func (h SessionTestHelper) AliceToBob(msg string, ad []byte) {
 	require.NoError(h.t, err)
 
 	d, err := h.bob.RatchetDecrypt(m, ad)
-
 	require.Nil(h.t, err)
 	require.EqualValues(h.t, msgByte, d)
 }
@@ -253,7 +251,6 @@ func (h SessionTestHelper) BobToAlice(msg string, ad []byte) {
 	require.NoError(h.t, err)
 
 	d, err := h.alice.RatchetDecrypt(m, ad)
-
 	require.Nil(h.t, err)
 	require.EqualValues(h.t, msgByte, d)
 }

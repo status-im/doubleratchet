@@ -85,8 +85,7 @@ func newState(sharedKey Key, opts ...option) (State, error) {
 	}
 
 	s := DefaultState(sharedKey)
-	err := s.applyOptions(opts)
-	if err != nil {
+	if err := s.applyOptions(opts); err != nil {
 		return State{}, err
 	}
 
@@ -141,11 +140,9 @@ func (s *State) skipMessageKeys(key Key, until uint) ([]skippedKey, error) {
 }
 
 func (s *State) applyChanges(sc State, skipped []skippedKey) error {
-	var err error
 	*s = sc
 	for _, skipped := range skipped {
-		err = s.MkSkipped.Put(skipped.key, skipped.nr, skipped.mk)
-		if err != nil {
+		if err := s.MkSkipped.Put(skipped.key, skipped.nr, skipped.mk); err != nil {
 			return err
 		}
 	}
@@ -154,17 +151,15 @@ func (s *State) applyChanges(sc State, skipped []skippedKey) error {
 }
 
 func (s *State) deleteSkippedKeys(key Key) error {
-	var err error
 
 	s.DeleteKeys[s.Step] = key
 	s.Step++
 	if hk, ok := s.DeleteKeys[s.Step-s.MaxKeep]; ok {
-		err = s.MkSkipped.DeletePk(hk)
-		if err != nil {
+		if err := s.MkSkipped.DeletePk(hk); err != nil {
 			return err
 		}
 
 		delete(s.DeleteKeys, s.Step-s.MaxKeep)
 	}
-	return err
+	return nil
 }

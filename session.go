@@ -10,21 +10,12 @@ type Session interface {
 
 	// RatchetDecrypt is called to AEAD-decrypt messages.
 	RatchetDecrypt(m Message, associatedData []byte) ([]byte, error)
-
-	IsInterfaceNil() bool
 }
 
-type session struct {
+type sessionState struct {
 	id []byte
 	State
 	storage SessionStorage
-}
-
-func (s *session) IsInterfaceNil() bool {
-	if nil == s {
-		return true
-	}
-	return false
 }
 
 // New creates session with the shared key.
@@ -35,7 +26,7 @@ func New(id []byte, sharedKey Key, keyPair DHPair, storage SessionStorage, opts 
 	}
 	state.DHs = keyPair
 
-	session := &session{id: id, State: state, storage: storage}
+	session := &sessionState{id: id, State: state, storage: storage}
 
 	return session, session.store()
 }
@@ -53,14 +44,14 @@ func NewWithRemoteKey(id []byte, sharedKey, remoteKey Key, storage SessionStorag
 	state.DHr = remoteKey
 	state.SendCh, _ = state.RootCh.step(state.Crypto.DH(state.DHs, state.DHr))
 
-	session := &session{id: id, State: state, storage: storage}
+	session := &sessionState{id: id, State: state, storage: storage}
 
 	return session, session.store()
 }
 
-func Load(id []byte, store SessionStorage, opts ...option) (*session, error) {
+// Load a session from a SessionStorage implementation and apply options.
+func Load(id []byte, store SessionStorage, opts ...option) (Session, error) {
 	state, err := store.Load(id)
-
 	if err != nil {
 		return nil, err
 	}
@@ -69,18 +60,17 @@ func Load(id []byte, store SessionStorage, opts ...option) (*session, error) {
 		return nil, nil
 	}
 
-	err = state.applyOptions(opts)
-
-	if err != nil {
+	if err = state.applyOptions(opts); err != nil {
 		return nil, err
 	}
-	s := &session{id: id, State: *state}
 
+	s := &sessionState{id: id, State: *state}
 	s.storage = store
+
 	return s, nil
 }
 
-func (s *session) store() error {
+func (s *sessionState) store() error {
 	if s.storage != nil {
 		err := s.storage.Save(s.id, &s.State)
 		if err != nil {
@@ -92,7 +82,7 @@ func (s *session) store() error {
 
 // RatchetEncrypt performs a symmetric-key ratchet step, then encrypts the message with
 // the resulting message key.
-func (s *session) RatchetEncrypt(plaintext, ad []byte) (Message, error) {
+func (s *sessionState) RatchetEncrypt(plaintext, ad []byte) (Message, error) {
 	var (
 		h = MessageHeader{
 			DH: s.DHs.PublicKey(),
@@ -104,8 +94,7 @@ func (s *session) RatchetEncrypt(plaintext, ad []byte) (Message, error) {
 	ct := s.Crypto.Encrypt(mk, plaintext, append(ad, h.Encode()...))
 
 	// Store state
-	err := s.store()
-	if err != nil {
+	if err := s.store(); err != nil {
 		return Message{}, err
 	}
 
@@ -113,7 +102,7 @@ func (s *session) RatchetEncrypt(plaintext, ad []byte) (Message, error) {
 }
 
 // RatchetDecrypt is called to decrypt messages.
-func (s *session) RatchetDecrypt(m Message, ad []byte) ([]byte, error) {
+func (s *sessionState) RatchetDecrypt(m Message, ad []byte) ([]byte, error) {
 	// Is the message one of the skipped?
 	mk, ok, err := s.MkSkipped.Get(m.Header.DH, uint(m.Header.N))
 	if err != nil {
@@ -131,7 +120,7 @@ func (s *session) RatchetDecrypt(m Message, ad []byte) ([]byte, error) {
 
 	var (
 		// All changes must be applied on a different session object, so that this session won't be modified nor left in a dirty session.
-		sc State = s.State
+		sc = s.State
 
 		skippedKeys1 []skippedKey
 		skippedKeys2 []skippedKey
@@ -160,8 +149,7 @@ func (s *session) RatchetDecrypt(m Message, ad []byte) ([]byte, error) {
 	}
 
 	// Apply changes.
-	err = s.applyChanges(sc, append(skippedKeys1, skippedKeys2...))
-	if err != nil {
+	if err := s.applyChanges(sc, append(skippedKeys1, skippedKeys2...)); err != nil {
 		return nil, err
 	}
 
@@ -173,8 +161,7 @@ func (s *session) RatchetDecrypt(m Message, ad []byte) ([]byte, error) {
 	}
 
 	// Store state
-	err = s.store()
-	if err != nil {
+	if err := s.store(); err != nil {
 		return nil, err
 	}
 
