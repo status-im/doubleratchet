@@ -45,7 +45,6 @@ func TestNewState_Basic(t *testing.T) {
 
 	require.NotNil(t, s.MkSkipped)
 	require.NotNil(t, s.Crypto)
-	require.NotNil(t, s.DeleteKeys)
 }
 
 func TestNewState_BadSharedKey(t *testing.T) {

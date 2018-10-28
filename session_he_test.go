@@ -134,6 +134,8 @@ func TestSessionHE_RatchetDecrypt_CommunicationSkippedMessages(t *testing.T) {
 			m1 = alice.RatchetEncrypt([]byte("bob"), nil)
 			m2 = alice.RatchetEncrypt([]byte("how are you?"), nil)
 			m3 = alice.RatchetEncrypt([]byte("still do cryptography?"), nil)
+			m4 = alice.RatchetEncrypt([]byte("what up bob?"), nil)
+			m5 = alice.RatchetEncrypt([]byte("bob?"), nil)
 		)
 
 		// Act and assert.
@@ -154,7 +156,7 @@ func TestSessionHE_RatchetDecrypt_CommunicationSkippedMessages(t *testing.T) {
 		require.NoError(t, err)
 		require.EqualValues(t, 1, bobSkippedCount)
 
-		_, err = bob.RatchetDecrypt(m3, nil) // Error: too many to skip.
+		_, err = bob.RatchetDecrypt(m5, nil) // Error: too many to skip.
 		require.NotNil(t, err)
 
 		d, err = bob.RatchetDecrypt(m2, nil) // Decrypted.
@@ -173,27 +175,78 @@ func TestSessionHE_RatchetDecrypt_CommunicationSkippedMessages(t *testing.T) {
 		d, err = bob.RatchetDecrypt(m0, nil) // Decrypted.
 		require.Nil(t, err)
 		require.Equal(t, []byte("hi"), d)
+
+		d, err = bob.RatchetDecrypt(m4, nil) // Decrypted.
+		require.Nil(t, err)
+		require.Equal(t, []byte("what up bob?"), d)
+
+		d, err = bob.RatchetDecrypt(m5, nil) // Decrypted.
+		require.Nil(t, err)
+		require.Equal(t, []byte("bob?"), d)
+
 	})
 }
 
-func TestSessionHE_SkippedKeysDeletion(t *testing.T) {
+func TestSessionHE_OldKeysDeletion(t *testing.T) {
 	// Arrange.
 	var (
 		bob, _   = NewHE(sk, sharedHka, sharedNhkb, bobPair, WithMaxKeep(2))
 		alice, _ = NewHEWithRemoteKey(sk, sharedHka, sharedNhkb, bobPair.PublicKey(), WithMaxKeep(2))
-		h        = SessionTestHelperHE{t, alice, bob}
 	)
 
 	// Act.
-	m0 := alice.RatchetEncrypt([]byte("Hi"), nil)
-
-	h.AliceToBob("Bob!", nil)         // Bob ratchet step 1.
-	h.BobToAlice("Alice?", nil)       // Alice ratchet step 1.
-	h.AliceToBob("How are you?", nil) // Bob ratchet step 2.
+	m0 := alice.RatchetEncrypt([]byte("Hi 1"), nil)
+	m1 := alice.RatchetEncrypt([]byte("Hi 2"), nil)
+	m2 := alice.RatchetEncrypt([]byte("Hi 3"), nil)
+	m3 := alice.RatchetEncrypt([]byte("Hi 4"), nil)
 
 	// Assert.
-	_, err := bob.RatchetDecrypt(m0, nil)
+
+	// This one should be in the db
+	_, err := bob.RatchetDecrypt(m1, nil)
+	require.Nil(t, err)
+
+	// This one should be in the db
+	_, err = bob.RatchetDecrypt(m3, nil)
+	require.Nil(t, err)
+
+	// This key should be discarded
+	_, err = bob.RatchetDecrypt(m0, nil)
 	require.NotNil(t, err)
+
+	// This one should be in the db
+	_, err = bob.RatchetDecrypt(m2, nil)
+	require.Nil(t, err)
+}
+
+func TestSessionHE_ExtraKeysDeletion(t *testing.T) {
+	// Arrange.
+	var (
+		bob, _   = NewHE(sk, sharedHka, sharedNhkb, bobPair, WithMaxMessageKeysPerSession(2))
+		alice, _ = NewHEWithRemoteKey(sk, sharedHka, sharedNhkb, bobPair.PublicKey(), WithMaxMessageKeysPerSession(2))
+	)
+
+	// Act.
+	m0 := alice.RatchetEncrypt([]byte("Hi 1"), nil)
+	m1 := alice.RatchetEncrypt([]byte("Hi 2"), nil)
+	m2 := alice.RatchetEncrypt([]byte("Hi 3"), nil)
+	m3 := alice.RatchetEncrypt([]byte("Hi 4"), nil)
+
+	// Assert.
+	_, err := bob.RatchetDecrypt(m3, nil)
+	require.Nil(t, err)
+
+	// This key should be discarded
+	_, err = bob.RatchetDecrypt(m0, nil)
+	require.NotNil(t, err)
+
+	// This one should be in the db
+	_, err = bob.RatchetDecrypt(m1, nil)
+	require.Nil(t, err)
+
+	// This one should be in the db
+	_, err = bob.RatchetDecrypt(m2, nil)
+	require.Nil(t, err)
 }
 
 type SessionTestHelperHE struct {

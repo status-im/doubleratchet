@@ -29,7 +29,7 @@ func TestKeysStorageInMemory_Put(t *testing.T) {
 	ks := &KeysStorageInMemory{}
 
 	// Act and assert.
-	err := ks.Put(pubKey1, 0, mk)
+	err := ks.Put([]byte("session-id"), pubKey1, 0, mk, 1)
 	require.NoError(t, err)
 }
 
@@ -58,15 +58,9 @@ func TestKeysStorageInMemory_Flow(t *testing.T) {
 	// Arrange.
 	ks := &KeysStorageInMemory{}
 
-	t.Run("delete non-existent pubkey", func(t *testing.T) {
-		// Act and assert.
-		err := ks.DeletePk(pubKey1)
-		require.NoError(t, err)
-	})
-
 	t.Run("put and get existing", func(t *testing.T) {
 		// Act.
-		err := ks.Put(pubKey1, 0, mk)
+		err := ks.Put([]byte("session-id"), pubKey1, 0, mk, 1)
 		require.NoError(t, err)
 
 		k, ok, err := ks.Get(pubKey1, 0)
@@ -137,33 +131,5 @@ func TestKeysStorageInMemory_Flow(t *testing.T) {
 		// Assert.
 		require.NoError(t, err)
 		require.EqualValues(t, 0, cnt)
-	})
-
-	t.Run("delete existing pubkey", func(t *testing.T) {
-		// Act.
-		err := ks.Put(pubKey1, 0, mk)
-		require.NoError(t, err)
-
-		err = ks.Put(pubKey2, 0, mk)
-		require.NoError(t, err)
-
-		err = ks.DeletePk(pubKey1)
-		require.NoError(t, err)
-
-		err = ks.DeletePk(pubKey1)
-		require.NoError(t, err)
-
-		err = ks.DeletePk(pubKey2)
-		require.NoError(t, err)
-
-		cn1, err := ks.Count(pubKey1)
-		require.NoError(t, err)
-
-		cn2, err := ks.Count(pubKey2)
-		require.NoError(t, err)
-
-		// Assert.
-		require.Empty(t, cn1)
-		require.Empty(t, cn2)
 	})
 }
