@@ -79,8 +79,8 @@ func TestSession_RatchetEncrypt_Basic(t *testing.T) {
 func TestSession_RatchetDecrypt_CommunicationFailedWithNoPublicKey(t *testing.T) {
 	// Arrange.
 	var (
-		bob, _   = New([]byte("id"), sk, bobPair, nil)
-		alice, _ = New([]byte("id"), sk, alicePair, nil)
+		bob, _   = New([]byte("bob"), sk, bobPair, nil)
+		alice, _ = New([]byte("alice"), sk, alicePair, nil)
 	)
 
 	// Act.
@@ -96,8 +96,8 @@ func TestSession_RatchetDecrypt_CommunicationFailedWithNoPublicKey(t *testing.T)
 func TestSession_RatchetDecrypt_CommunicationAliceSends(t *testing.T) {
 	// Arrange.
 	var (
-		bob, _   = New([]byte("id"), sk, bobPair, nil)
-		alice, _ = NewWithRemoteKey([]byte("id"), sk, bobPair.PublicKey(), nil)
+		bob, _   = New([]byte("bob"), sk, bobPair, nil)
+		alice, _ = NewWithRemoteKey([]byte("alice"), sk, bobPair.PublicKey(), nil)
 	)
 
 	for i := 0; i < 10; i++ {
@@ -111,8 +111,8 @@ func TestSession_RatchetDecrypt_CommunicationAliceSends(t *testing.T) {
 
 func TestSession_RatchetDecrypt_CommunicationBobSends(t *testing.T) {
 	var (
-		bob, _   = New([]byte("id"), sk, bobPair, nil)
-		alice, _ = NewWithRemoteKey([]byte("id"), sk, bobPair.PublicKey(), nil)
+		bob, _   = New([]byte("bob"), sk, bobPair, nil)
+		alice, _ = NewWithRemoteKey([]byte("alice"), sk, bobPair.PublicKey(), nil)
 	)
 
 	for i := 0; i < 10; i++ {
@@ -127,8 +127,8 @@ func TestSession_RatchetDecrypt_CommunicationBobSends(t *testing.T) {
 func TestSession_RatchetDecrypt_CommunicationPingPong(t *testing.T) {
 	// Arrange.
 	var (
-		bob, _   = New([]byte("id"), sk, bobPair, nil)
-		alice, _ = NewWithRemoteKey([]byte("id"), sk, bobPair.PublicKey(), nil)
+		bob, _   = New([]byte("bob"), sk, bobPair, nil)
+		alice, _ = NewWithRemoteKey([]byte("alice"), sk, bobPair.PublicKey(), nil)
 	)
 
 	for i := 0; i < 10; i++ {
@@ -145,10 +145,10 @@ func TestSession_RatchetDecrypt_CommunicationPingPong(t *testing.T) {
 func TestSession_RatchetDecrypt_CommunicationSkippedMessages(t *testing.T) {
 	// Arrange.
 	var (
-		bobI, _ = New([]byte("id"), sk, bobPair, nil, WithMaxSkip(1))
+		bobI, _ = New([]byte("bob"), sk, bobPair, nil, WithMaxSkip(1))
 		bob     = bobI.(*sessionState)
 
-		aliceI, _ = NewWithRemoteKey([]byte("id"), sk, bob.DHs.PublicKey(), nil, WithMaxSkip(1))
+		aliceI, _ = NewWithRemoteKey([]byte("alice"), sk, bob.DHs.PublicKey(), nil, WithMaxSkip(1))
 		alice     = aliceI.(*sessionState)
 	)
 
@@ -164,6 +164,12 @@ func TestSession_RatchetDecrypt_CommunicationSkippedMessages(t *testing.T) {
 		require.NoError(t, err)
 
 		m3, err := alice.RatchetEncrypt([]byte("still do cryptography?"), nil)
+		require.NoError(t, err)
+
+		m4, err := alice.RatchetEncrypt([]byte("you there?"), nil)
+		require.NoError(t, err)
+
+		m5, err := alice.RatchetEncrypt([]byte("bob? bob? BOB? BOB?"), nil)
 		require.NoError(t, err)
 
 		// Act and assert.
@@ -184,7 +190,7 @@ func TestSession_RatchetDecrypt_CommunicationSkippedMessages(t *testing.T) {
 		require.NoError(t, err)
 		require.EqualValues(t, 1, bobSkippedCount)
 
-		_, err = bob.RatchetDecrypt(m3, nil) // Error: too many to skip.
+		_, err = bob.RatchetDecrypt(m5, nil) // Too many messages
 		require.NotNil(t, err)
 
 		d, err = bob.RatchetDecrypt(m2, nil) // Decrypted.
@@ -203,14 +209,22 @@ func TestSession_RatchetDecrypt_CommunicationSkippedMessages(t *testing.T) {
 		d, err = bob.RatchetDecrypt(m0, nil) // Decrypted.
 		require.Nil(t, err)
 		require.Equal(t, []byte("hi"), d)
+
+		d, err = bob.RatchetDecrypt(m4, nil) // Decrypted.
+		require.Nil(t, err)
+		require.Equal(t, []byte("you there?"), d)
+
+		d, err = bob.RatchetDecrypt(m5, nil) // Decrypted.
+		require.Nil(t, err)
+		require.Equal(t, []byte("bob? bob? BOB? BOB?"), d)
 	})
 }
 
 func TestSession_SkippedKeysDeletion(t *testing.T) {
 	// Arrange.
 	var (
-		bob, _   = New([]byte("id"), sk, bobPair, nil, WithMaxKeep(2))
-		alice, _ = NewWithRemoteKey([]byte("id"), sk, bobPair.PublicKey(), nil, WithMaxKeep(2))
+		bob, _   = New([]byte("bob"), sk, bobPair, nil, WithMaxKeep(2))
+		alice, _ = NewWithRemoteKey([]byte("alice"), sk, bobPair.PublicKey(), nil, WithMaxKeep(2))
 		h        = SessionTestHelper{t, alice, bob}
 	)
 
