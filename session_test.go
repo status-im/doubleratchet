@@ -188,7 +188,7 @@ func TestSession_RatchetDecrypt_CommunicationSkippedMessages(t *testing.T) {
 
 		bobSkippedCount, err = bob.MkSkipped.Count(bob.DHr)
 		require.NoError(t, err)
-		require.EqualValues(t, 1, bobSkippedCount)
+		require.EqualValues(t, 2, bobSkippedCount)
 
 		_, err = bob.RatchetDecrypt(m5, nil) // Too many messages
 		require.NotNil(t, err)
