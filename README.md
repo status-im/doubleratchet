@@ -1,9 +1,9 @@
 # doubleratchet
 
-[![Go Report Card](https://goreportcard.com/badge/github.com/tiabc/doubleratchet)](https://goreportcard.com/report/github.com/tiabc/doubleratchet)
-[![Build Status](https://travis-ci.org/tiabc/doubleratchet.svg?branch=master)](https://travis-ci.org/tiabc/doubleratchet)
-[![Coverage Status](https://coveralls.io/repos/github/tiabc/doubleratchet/badge.svg?branch=master)](https://coveralls.io/github/tiabc/doubleratchet?branch=master)
-[![GoDoc](https://godoc.org/github.com/tiabc/doubleratchet?status.svg)](https://godoc.org/github.com/tiabc/doubleratchet)
+[![Go Report Card](https://goreportcard.com/badge/github.com/status-im/doubleratchet)](https://goreportcard.com/report/github.com/status-im/doubleratchet)
+[![Build Status](https://travis-ci.org/status-im/doubleratchet.svg?branch=master)](https://travis-ci.org/status-im/doubleratchet)
+[![Coverage Status](https://coveralls.io/repos/github/status-im/doubleratchet/badge.svg?branch=master)](https://coveralls.io/github/status-im/doubleratchet?branch=master)
+[![GoDoc](https://godoc.org/github.com/status-im/doubleratchet?status.svg)](https://godoc.org/github.com/status-im/doubleratchet)
 
 [The Double Ratchet Algorithm](https://whispersystems.org/docs/specifications/doubleratchet) is used
 by two parties to exchange encrypted messages based on a shared secret key. Typically the parties
@@ -40,7 +40,7 @@ of them could message each other from the very beginning.
 
 ## Installation
 
-    go get github.com/tiabc/doubleratchet
+    go get github.com/status-im/doubleratchet
 
 then `cd` into the project directory and install dependencies:
 
@@ -164,7 +164,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/tiabc/doubleratchet"
+	"github.com/status-im/doubleratchet"
 )
 
 func main() {
