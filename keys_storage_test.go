@@ -1,6 +1,7 @@
 package doubleratchet
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -74,12 +75,13 @@ func TestKeysStorageInMemory_Flow(t *testing.T) {
 	t.Run("get all", func(t *testing.T) {
 		// Act.
 		all, err := ks.All()
+		index := fmt.Sprintf("%x", pubKey1)
 
 		// Assert.
 		require.NoError(t, err)
 		require.Len(t, all, 1)
-		require.Len(t, all[pubKey1], 1)
-		require.Equal(t, mk, all[pubKey1][0])
+		require.Len(t, all[index], 1)
+		require.Equal(t, mk, all[index][0])
 	})
 
 	t.Run("get non-existent pub key", func(t *testing.T) {

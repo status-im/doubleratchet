@@ -27,8 +27,8 @@ type DHPair interface {
 	PublicKey() Key
 }
 
-// Key is any 32-byte key. It's created for the possibility of pretty hex output.
-type Key [32]byte
+// Key is any byte representation of a key.
+type Key []byte
 
 // Stringer interface compliance.
 func (k Key) String() string {

@@ -1,6 +1,9 @@
 package doubleratchet
 
-import "fmt"
+import (
+	"bytes"
+	"fmt"
+)
 
 // Session of the party involved in the Double Ratchet Algorithm.
 type Session interface {
@@ -145,7 +148,7 @@ func (s *sessionState) RatchetDecrypt(m Message, ad []byte) ([]byte, error) {
 	)
 
 	// Is there a new ratchet key?
-	if m.Header.DH != sc.DHr {
+	if !bytes.Equal(m.Header.DH, sc.DHr) {
 		if skippedKeys1, err = sc.skipMessageKeys(sc.DHr, uint(m.Header.PN)); err != nil {
 			return nil, fmt.Errorf("can't skip previous chain message keys: %s", err)
 		}

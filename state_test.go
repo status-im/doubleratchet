@@ -36,7 +36,7 @@ func TestNewState_Basic(t *testing.T) {
 	require.NotNil(t, sk, s.RecvCh.Crypto)
 	require.Empty(t, s.RecvCh.N)
 
-	require.Equal(t, Key{}, s.DHr)
+	require.Nil(t, s.DHr)
 	require.Equal(t, dhPair{}, s.DHs)
 
 	require.Empty(t, s.PN)
@@ -49,7 +49,7 @@ func TestNewState_Basic(t *testing.T) {
 
 func TestNewState_BadSharedKey(t *testing.T) {
 	// Act.
-	_, err := newState([32]byte{})
+	_, err := newState(nil)
 
 	// Assert.
 	require.NotNil(t, err)

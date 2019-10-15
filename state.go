@@ -85,7 +85,7 @@ func (s *State) applyOptions(opts []option) error {
 }
 
 func newState(sharedKey Key, opts ...option) (State, error) {
-	if sharedKey == [32]byte{} {
+	if sharedKey == nil {
 		return State{}, fmt.Errorf("sharedKey mustn't be empty")
 	}
 
