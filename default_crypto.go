@@ -39,14 +39,14 @@ func (c DefaultCrypto) GenerateDH() (DHPair, error) {
 
 // DH returns the output from the Diffie-Hellman calculation between
 // the private key from the DH key pair dhPair and the DH public key dbPub.
-func (c DefaultCrypto) DH(dhPair DHPair, dhPub Key) Key {
+func (c DefaultCrypto) DH(dhPair DHPair, dhPub Key) (Key, error) {
 	var (
 		dhOut   [32]byte
 		privKey [32]byte = dhPair.PrivateKey()
 		pubKey  [32]byte = dhPub
 	)
 	curve25519.ScalarMult(&dhOut, &privKey, &pubKey)
-	return dhOut
+	return dhOut, nil
 }
 
 // KdfRK returns a pair (32-byte root key, 32-byte chain key) as the output of applying
@@ -89,7 +89,7 @@ func (c DefaultCrypto) KdfCK(ck Key) (chainKey Key, msgKey Key) {
 // Encrypt uses a slightly different approach than in the algorithm specification:
 // it uses AES-256-CTR instead of AES-256-CBC for security, ciphertext length and implementation
 // complexity considerations.
-func (c DefaultCrypto) Encrypt(mk Key, plaintext, ad []byte) []byte {
+func (c DefaultCrypto) Encrypt(mk Key, plaintext, ad []byte) ([]byte, error) {
 	encKey, authKey, iv := c.deriveEncKeys(mk)
 
 	ciphertext := make([]byte, aes.BlockSize+len(plaintext))
@@ -101,7 +101,7 @@ func (c DefaultCrypto) Encrypt(mk Key, plaintext, ad []byte) []byte {
 	)
 	stream.XORKeyStream(ciphertext[aes.BlockSize:], plaintext)
 
-	return append(ciphertext, c.computeSignature(authKey[:], ciphertext, ad)...)
+	return append(ciphertext, c.computeSignature(authKey[:], ciphertext, ad)...), nil
 }
 
 // Decrypt returns the AEAD decryption of ciphertext with message key mk.

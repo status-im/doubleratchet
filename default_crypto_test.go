@@ -79,14 +79,16 @@ func TestDefaultCrypto_DH(t *testing.T) {
 	var (
 		alicePair, err1 = c.GenerateDH()
 		bobPair, err2   = c.GenerateDH()
-		aliceSK         = c.DH(alicePair, bobPair.PublicKey())
-		bobSK           = c.DH(bobPair, alicePair.PublicKey())
+		aliceSK, err3   = c.DH(alicePair, bobPair.PublicKey())
+		bobSK, err4     = c.DH(bobPair, alicePair.PublicKey())
 	)
 
 	// Assert.
 	require.Nil(t, err1)
 	require.Nil(t, err2)
-	require.NotEqual(t, [32]byte{}, aliceSK)
+	require.Nil(t, err3)
+	require.Nil(t, err4)
+	require.NotEqual(t, nil, aliceSK)
 	require.Equal(t, aliceSK, bobSK)
 }
 
@@ -171,46 +173,46 @@ func TestDefaultCrypto_EncryptDecrypt(t *testing.T) {
 
 	t.Run("no associated data", func(t *testing.T) {
 		// Act.
-		var (
-			ciphertext     = c.Encrypt(mk, msg, nil)
-			plaintext, err = c.Decrypt(mk, ciphertext, nil)
-		)
+		ciphertext, err := c.Encrypt(mk, msg, nil)
+		require.Nil(t, err)
+
+		plaintext, err := c.Decrypt(mk, ciphertext, nil)
+		require.Nil(t, err)
 
 		// Assert.
-		require.Nil(t, err)
 		require.Len(t, ciphertext, 16+len(msg)+32) // iv + plaintext length + signature
 		require.Equal(t, msg, plaintext)
 	})
 
 	t.Run("same associated data", func(t *testing.T) {
 		// Act.
-		var (
-			ciphertext     = c.Encrypt(mk, msg, []byte("any secret"))
-			plaintext, err = c.Decrypt(mk, ciphertext, []byte("any secret"))
-		)
+		ciphertext, err := c.Encrypt(mk, msg, []byte("any secret"))
+		require.Nil(t, err)
+
+		plaintext, err := c.Decrypt(mk, ciphertext, []byte("any secret"))
+		require.Nil(t, err)
 
 		// Assert.
-		require.Nil(t, err)
 		require.Len(t, ciphertext, 32+16+len(msg)) // signature + iv + plaintext length
 		require.Equal(t, msg, plaintext)
 	})
 
 	t.Run("different associated data", func(t *testing.T) {
 		// Act.
-		var (
-			ciphertext = c.Encrypt(mk, msg, []byte("not secret at all"))
-			_, err     = c.Decrypt(mk, ciphertext, []byte("any secret"))
-		)
+		ciphertext, err := c.Encrypt(mk, msg, []byte("not secret at all"))
+		require.Nil(t, err)
 
-		// Assert.
+		_, err = c.Decrypt(mk, ciphertext, []byte("any secret"))
 		require.EqualError(t, err, "invalid signature")
 	})
 
 	t.Run("malformed signature", func(t *testing.T) {
 		// Act.
-		ciphertext := c.Encrypt(mk, msg, nil)
+		ciphertext, err := c.Encrypt(mk, msg, nil)
+		require.Nil(t, err)
+
 		ciphertext[len(ciphertext)-1] ^= 57 // Inverse the last byte in the signature.
-		_, err := c.Decrypt(mk, ciphertext, nil)
+		_, err = c.Decrypt(mk, ciphertext, nil)
 
 		// Assert.
 		require.EqualError(t, err, "invalid signature")

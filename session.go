@@ -45,7 +45,12 @@ func NewWithRemoteKey(id []byte, sharedKey, remoteKey Key, storage SessionStorag
 		return nil, fmt.Errorf("can't generate key pair: %s", err)
 	}
 	state.DHr = remoteKey
-	state.SendCh, _ = state.RootCh.step(state.Crypto.DH(state.DHs, state.DHr))
+	secret, err := state.Crypto.DH(state.DHs, state.DHr)
+	if err != nil {
+		return nil, fmt.Errorf("can't generate dh secret: %s", err)
+	}
+
+	state.SendCh, _ = state.RootCh.step(secret)
 
 	session := &sessionState{id: id, State: state, storage: storage}
 
@@ -94,7 +99,10 @@ func (s *sessionState) RatchetEncrypt(plaintext, ad []byte) (Message, error) {
 		}
 		mk = s.SendCh.step()
 	)
-	ct := s.Crypto.Encrypt(mk, plaintext, append(ad, h.Encode()...))
+	ct, err := s.Crypto.Encrypt(mk, plaintext, append(ad, h.Encode()...))
+	if err != nil {
+		return Message{}, err
+	}
 
 	// Store state
 	if err := s.store(); err != nil {
