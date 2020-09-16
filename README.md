@@ -37,15 +37,24 @@ of them could message each other from the very beginning.
 1. **KDF_CK(ck):** HMAC with SHA-256 and constant inputs
 1. **ENCRYPT(mk, pt, associated_data):** AES-256-CTR with HMAC-SHA-256 and IV derived alongside an encryption key
 
+## Loki's Notes:
+
+The highly accelerated sha256 ASICs available on the market now make it a terrible choice
+for defending against various kinds of attacks where the solution space can be narrowed
+down and put a brute force attack within reach of a fast bitcoin miner ASIC. As such,
+it has been replaced with the [divhash](https://github.com/stalker-loki/divhash) function
+which cannot (theoretically) be accelerated significantly compared to the reference
+implementation due to its dependence on long division of very large integers.
+
 ## Installation
 
     go get github.com/status-im/doubleratchet
 
-then `cd` into the project directory and install dependencies:
+~~then `cd` into the project directory and install dependencies:~~
 
-    glide up
+    ~~glide up~~
     
-If `glide` is not installed, [install it](https://github.com/Masterminds/glide).
+~~If `glide` is not installed, [install it](https://github.com/Masterminds/glide).~~
 
 ## Usage
 
@@ -58,7 +67,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/status-im/doubleratchet"
+	"github.com/stalker-loki/doubleratchet"
 )
 
 func main() {
