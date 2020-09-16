@@ -6,12 +6,13 @@ import (
 	"crypto/cipher"
 	"crypto/hmac"
 	"crypto/rand"
-	"crypto/sha256"
 	"fmt"
 	"io"
 
 	"golang.org/x/crypto/curve25519"
 	"golang.org/x/crypto/hkdf"
+
+	"github.com/stalker-loki/divhash"
 )
 
 // DefaultCrypto is an implementation of Crypto with cryptographic primitives recommended
@@ -39,24 +40,38 @@ func (c DefaultCrypto) GenerateDH() (DHPair, error) {
 
 // DH returns the output from the Diffie-Hellman calculation between
 // the private key from the DH key pair dhPair and the DH public key dbPub.
-func (c DefaultCrypto) DH(dhPair DHPair, dhPub Key) (Key, error) {
+func (c DefaultCrypto) DH(dhPair DHPair, dhPub Key) (k Key, err error) {
 	var (
 		dhOut   [32]byte
 		privKey [32]byte
 		pubKey  [32]byte
 	)
 	if len(dhPair.PrivateKey()) != 32 {
-		return nil, fmt.Errorf("Invalid private key length: %d", len(dhPair.PrivateKey()))
+		return nil, fmt.Errorf("invalid private key length: %d", len(dhPair.PrivateKey()))
 	}
 
 	if len(dhPub) != 32 {
-		return nil, fmt.Errorf("Invalid private key length: %d", len(dhPair.PrivateKey()))
+		return nil, fmt.Errorf("invalid private key length: %d", len(dhPair.PrivateKey()))
 	}
 
 	copy(privKey[:], dhPair.PrivateKey()[:32])
 	copy(pubKey[:], dhPub[:32])
 
 	curve25519.ScalarMult(&dhOut, &privKey, &pubKey)
+	var zeroCount int
+	for i := range dhOut {
+		if dhOut[i] == 0 {
+			zeroCount++
+		}
+	}
+	// ScalarMult returns all zeroes if there is a too-low
+	// due to: when provided a low-order point, ScalarMult will set dst to all
+	// zeroes, irrespective of the scalar. Instead, use the X25519 function, which
+	// will return an error. TODO: fixme
+	if zeroCount == len(dhOut) {
+		err = fmt.Errorf("key derivation failed")
+		return
+	}
 	return dhOut[:], nil
 }
 
@@ -64,7 +79,7 @@ func (c DefaultCrypto) DH(dhPair DHPair, dhPub Key) (Key, error) {
 // a KDF keyed by a 32-byte root key rk to a Diffie-Hellman output dhOut.
 func (c DefaultCrypto) KdfRK(rk, dhOut Key) (Key, Key, Key) {
 	var (
-		r   = hkdf.New(sha256.New, dhOut, rk, []byte("rsZUpEuXUqqwXBvSy3EcievAh4cMj6QL"))
+		r   = hkdf.New(divhash.New, dhOut, rk, []byte("rsZUpEuXUqqwXBvSy3EcievAh4cMj6QL"))
 		buf = make([]byte, 96)
 	)
 
@@ -92,7 +107,7 @@ func (c DefaultCrypto) KdfCK(ck Key) (Key, Key) {
 	chainKey := make(Key, 32)
 	msgKey := make(Key, 32)
 
-	h := hmac.New(sha256.New, ck[:])
+	h := hmac.New(divhash.New, ck[:])
 
 	_, _ = h.Write([]byte{ckInput})
 	copy(chainKey[:], h.Sum(nil))
@@ -126,8 +141,8 @@ func (c DefaultCrypto) Encrypt(mk Key, plaintext, ad []byte) ([]byte, error) {
 func (c DefaultCrypto) Decrypt(mk Key, authCiphertext, ad []byte) ([]byte, error) {
 	var (
 		l          = len(authCiphertext)
-		ciphertext = authCiphertext[:l-sha256.Size]
-		signature  = authCiphertext[l-sha256.Size:]
+		ciphertext = authCiphertext[:l-32]
+		signature  = authCiphertext[l-32:]
 	)
 
 	// Check the signature.
@@ -153,7 +168,7 @@ func (c DefaultCrypto) deriveEncKeys(mk Key) (Key, Key, [16]byte) {
 	// First, derive encryption and authentication key out of mk.
 	salt := make([]byte, 32)
 	var (
-		r   = hkdf.New(sha256.New, mk[:], salt, []byte("pcwSByyx2CRdryCffXJwy7xgVZWtW5Sh"))
+		r   = hkdf.New(divhash.New, mk[:], salt, []byte("pcwSByyx2CRdryCffXJwy7xgVZWtW5Sh"))
 		buf = make([]byte, 80)
 	)
 
@@ -172,7 +187,7 @@ func (c DefaultCrypto) deriveEncKeys(mk Key) (Key, Key, [16]byte) {
 }
 
 func (c DefaultCrypto) computeSignature(authKey, ciphertext, associatedData []byte) []byte {
-	h := hmac.New(sha256.New, authKey)
+	h := hmac.New(divhash.New, authKey)
 	_, _ = h.Write(associatedData)
 	_, _ = h.Write(ciphertext)
 	return h.Sum(nil)
