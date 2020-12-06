@@ -41,11 +41,6 @@ of them could message each other from the very beginning.
 
     go get github.com/status-im/doubleratchet
 
-then `cd` into the project directory and install dependencies:
-
-    glide up
-    
-If `glide` is not installed, [install it](https://github.com/Masterminds/glide).
 
 ## Usage
 
